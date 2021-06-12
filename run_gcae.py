@@ -45,6 +45,9 @@ import csv
 import copy
 import h5py
 import matplotlib.animation as animation
+import asyncio
+
+#tf.debugging.enable_check_numerics()
 
 class Autoencoder(Model):
 
@@ -229,10 +232,18 @@ class Autoencoder(Model):
 			reg_func = reg_name(float(self.regularizer["reg_factor"]))
 
 			# if this is a clustering model then the regularization is added to the raw encoding, not the softmaxed one
-			if have_encoded_raw:
-				reg_loss = reg_func(encoded_data_raw)
-			else:
-				reg_loss = reg_func(encoded_data)
+			#if have_encoded_raw:
+			#	reg_loss = reg_func(encoded_data_raw)
+			#else:
+			#	reg_loss = reg_func(encoded_data)
+			reg_loss = self.regularizer["reg_factor"] * tf.reduce_sum(tf.math.maximum(0., tf.square(encoded_data) - 40000.))
+			diff = encoded_data - tf.stop_gradient(tf.roll(encoded_data, 1, axis=0))
+			diff += tf.where(tf.sign(diff) < 0, -1e-19, 1e-19)
+			#norm = tf.expand_dims(tf.norm(diff, ord = 2, axis = -1), axis=-1)
+			# tf.stop_gradient(diff / (norm + 1e-19)) * 
+			self.add_loss(self.regularizer["rep_factor"] * tf.math.reduce_sum(tf.stop_gradient(tf.norm(diff, ord=2, axis = -1)) * tf.math.minimum(self.regularizer["max_rep"], tf.math.log(1 + (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))))))
+			# tf.norm(diff, ord = 2, axis = -1)
+			# * f.math.l2_normalize(diff, axis = -1)
 			self.add_loss(reg_loss)
 
 		return x, encoded_data
@@ -331,9 +342,10 @@ def alfreqvector(y_pred):
 		alfreq = tf.expand_dims(alfreq, -1)
 		return tf.concat(((1-alfreq) ** 2, 2 * alfreq * (1 - alfreq), alfreq ** 2), axis=-1)
 	else:
-		return tf.nn.softmax(y_pred)
+		return y_pred#tf.nn.softmax(y_pred)
 
 if __name__ == "__main__":
+	asyncio.new_event_loop()
 	print("tensorflow version {0}".format(tf.__version__))
 	tf.keras.backend.set_floatx('float32')
 
@@ -532,12 +544,18 @@ if __name__ == "__main__":
 				if not fill_missing:
 					orig_nonmissing_mask = get_originally_nonmissing_mask(y_true)
 				else:
-					orig_nonmissing_mask = np.full(y_pred.shape, True)
+					orig_nonmissing_mask = np.full(y_true.shape, True)
 
 				y_pred = alfreqvector(y_pred)
 				y_true = tf.one_hot(tf.cast(y_true * 2, tf.uint8), 3)*0.9997 + 0.0001
 
-				return loss_obj(y_pred = y_pred[orig_nonmissing_mask], y_true = y_true[orig_nonmissing_mask])
+				#tf.print("YPRED", y_pred)
+				#tf.print("YTRUE", y_true)
+				#tf.print("YMASK", orig_nonmissing_mask)
+				#tf.print("YMASK", tf.math.zero_fraction(orig_nonmissing_mask))
+				#tf.print("PRED", y_pred[orig_nonmissing_mask,:])
+				#tf.print("TRUE", y_true[orig_nonmissing_mask,:])
+				return loss_obj(y_pred = y_pred, y_true = y_true)
 
 
 		else:
@@ -653,7 +671,8 @@ if __name__ == "__main__":
 
 		######################################################
 
-
+		prevcoro = []
+		prevcoro2 = []
 		for e in range(1,epochs+1):
 			startTime = datetime.now()
 			dg.shuffle_train_samples()
@@ -678,8 +697,15 @@ if __name__ == "__main__":
 				if not missing_mask_input:
 					batch_input = batch_input[:,:,0,np.newaxis]
 
-				train_batch_loss = run_optimization(autoencoder, optimizer, loss_func, batch_input, batch_target)
-				train_losses.append(train_batch_loss)
+				asyncio.get_event_loop().run_until_complete(asyncio.gather(*prevcoro))
+				
+				def step():
+					
+					train_batch_loss = run_optimization(autoencoder, optimizer, loss_func, batch_input, batch_target)
+					train_losses.append(train_batch_loss)
+				#prevcoro2 = prevcoro
+				prevcoro = [asyncio.get_event_loop().run_in_executor(None, step)]
+			asyncio.get_event_loop().run_until_complete(asyncio.gather(*(prevcoro + prevcoro2)))
 
 			with train_writer.as_default():
 				tf.summary.scalar('loss', np.average(train_losses), step = step_counter)
