@@ -47,6 +47,7 @@ import h5py
 import matplotlib.animation as animation
 import asyncio
 
+#mirrored_strategy = tf.distribute.MirroredStrategy()
 #tf.debugging.enable_check_numerics()
 
 class Autoencoder(Model):
@@ -237,11 +238,16 @@ class Autoencoder(Model):
 			#else:
 			#	reg_loss = reg_func(encoded_data)
 			reg_loss = self.regularizer["reg_factor"] * tf.reduce_sum(tf.math.maximum(0., tf.square(encoded_data) - 40000.))
-			diff = encoded_data - tf.stop_gradient(tf.roll(encoded_data, 1, axis=0))
+			shifted = tf.stop_gradient(tf.roll(encoded_data, 1, axis=0))
+			diff = encoded_data - shifted
 			diff += tf.where(tf.sign(diff) < 0, -1e-19, 1e-19)
+			mean = tf.math.reduce_mean(encoded_data, axis=0, keepdims=True)
+			#diff *= tf.expand_dims(tf.where(tf.norm(shifted - mean, axis = -1) < tf.norm(encoded_data - mean, axis = -1), 1.0, 0.0), axis=-1)
+			smalleralong = tf.math.reduce_sum(tf.square(encoded_data - mean), axis = -1) < tf.math.reduce_sum((encoded_data - mean) * (shifted - mean), axis = -1)
+			diff *= tf.expand_dims(tf.where(smalleralong, 1.0, 0.0), axis=-1)
 			#norm = tf.expand_dims(tf.norm(diff, ord = 2, axis = -1), axis=-1)
 			# tf.stop_gradient(diff / (norm + 1e-19)) * 
-			self.add_loss(self.regularizer["rep_factor"] * tf.math.reduce_sum(tf.stop_gradient(tf.norm(diff, ord=2, axis = -1)) * tf.math.minimum(self.regularizer["max_rep"], tf.math.log(1 + (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))))))
+			self.add_loss(self.regularizer["rep_factor"] * tf.math.reduce_sum(tf.math.minimum(self.regularizer["max_rep"], tf.math.log(1 + (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))))))
 			# tf.norm(diff, ord = 2, axis = -1)
 			# * f.math.l2_normalize(diff, axis = -1)
 			self.add_loss(reg_loss)
@@ -344,7 +350,7 @@ def alfreqvector(y_pred):
 	else:
 		return y_pred#tf.nn.softmax(y_pred)
 
-if __name__ == "__main__":
+def main():
 	asyncio.new_event_loop()
 	print("tensorflow version {0}".format(tf.__version__))
 	tf.keras.backend.set_floatx('float32')
@@ -633,6 +639,7 @@ if __name__ == "__main__":
 		else:
 			lr_schedule = False
 
+	
 		print("\n______________________________ Data ______________________________")
 		print("N unique train samples: {0}".format(n_unique_train_samples))
 		print("--- training on : {0}".format(n_train_samples))
@@ -1216,3 +1223,6 @@ if __name__ == "__main__":
 					plot_coords(encoded_train, "{0}/dimred_e_{1}".format(results_directory, epoch))
 
 
+if __name__ == "__main__":
+	#with mirrored_strategy.scope():
+	main()
