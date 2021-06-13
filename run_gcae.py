@@ -210,7 +210,9 @@ class Autoencoder(Model):
 			if layer_name == "encoded":
 				encoded_data = x
 				if self.noise_std and not have_encoded_raw:
-					x = self.noise_layer(x, training = is_training)				
+					x = self.noise_layer(x, training = is_training)
+				x = tf.concat((x, x*x), axis=-1)
+
 
 			if "Residual" in layer_name:
 				out = self.handle_residual_layer(layer_name, x, verbose=verbose)
