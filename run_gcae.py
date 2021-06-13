@@ -208,9 +208,9 @@ class Autoencoder(Model):
 
 			# If this is the encoding layer, we add noise if we are training
 			if layer_name == "encoded":
-				if self.noise_std and not have_encoded_raw:
-					x = self.noise_layer(x, training = is_training)
 				encoded_data = x
+				if self.noise_std and not have_encoded_raw:
+					x = self.noise_layer(x, training = is_training)				
 
 			if "Residual" in layer_name:
 				out = self.handle_residual_layer(layer_name, x, verbose=verbose)
@@ -244,7 +244,7 @@ class Autoencoder(Model):
 			mean = tf.math.reduce_mean(encoded_data, axis=0, keepdims=True)
 			#diff *= tf.expand_dims(tf.where(tf.norm(shifted - mean, axis = -1) < tf.norm(encoded_data - mean, axis = -1), 1.0, 0.0), axis=-1)
 			smalleralong = tf.math.reduce_sum(tf.square(encoded_data - mean), axis = -1) < tf.math.reduce_sum((encoded_data - mean) * (shifted - mean), axis = -1)
-			diff *= tf.expand_dims(tf.where(smalleralong, 1.0, 0.0), axis=-1)
+			diff *= tf.expand_dims(tf.where(smalleralong, 0.0, 1.0), axis=-1)
 			#norm = tf.expand_dims(tf.norm(diff, ord = 2, axis = -1), axis=-1)
 			# tf.stop_gradient(diff / (norm + 1e-19)) * 
 			self.add_loss(self.regularizer["rep_factor"] * tf.math.reduce_sum(tf.math.minimum(self.regularizer["max_rep"], tf.math.log(1 + (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))))))
@@ -648,7 +648,7 @@ def main():
 		print("")
 
 		autoencoder = Autoencoder(model_architecture, n_markers, noise_std, regularizer)
-		optimizer = tf.optimizers.Adam(learning_rate = lr_schedule)
+		optimizer = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.9, beta_2 = 0.9)
 
 		if resume_from:
 			print("\n______________________________ Resuming training from epoch {0} ______________________________".format(resume_from))
