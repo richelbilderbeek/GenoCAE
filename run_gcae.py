@@ -246,10 +246,10 @@ class Autoencoder(Model):
 			mean = tf.math.reduce_mean(encoded_data, axis=0, keepdims=True)
 			#diff *= tf.expand_dims(tf.where(tf.norm(shifted - mean, axis = -1) < tf.norm(encoded_data - mean, axis = -1), 1.0, 0.0), axis=-1)
 			smalleralong = tf.math.reduce_sum(tf.square(encoded_data - mean), axis = -1) < tf.math.reduce_sum((encoded_data - mean) * (shifted - mean), axis = -1)
-			diff *= tf.expand_dims(tf.where(smalleralong, 0.0, 1.0), axis=-1)
+			#diff *= tf.expand_dims(tf.where(smalleralong, 0.0, 1.0), axis=-1)
 			#norm = tf.expand_dims(tf.norm(diff, ord = 2, axis = -1), axis=-1)
 			# tf.stop_gradient(diff / (norm + 1e-19)) * 
-			self.add_loss(self.regularizer["rep_factor"] * tf.math.reduce_sum(tf.math.minimum(self.regularizer["max_rep"], tf.math.log(1 + (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))))))
+			self.add_loss(self.regularizer["rep_factor"] * tf.math.reduce_sum(tf.math.minimum(self.regularizer["max_rep"], tf.math.exp(-tf.square(tf.norm(diff, ord = self.regularizer["ord"], axis = -1))))))
 			# tf.norm(diff, ord = 2, axis = -1)
 			# * f.math.l2_normalize(diff, axis = -1)
 			self.add_loss(reg_loss)
