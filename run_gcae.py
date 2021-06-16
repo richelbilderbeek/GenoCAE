@@ -137,7 +137,7 @@ class Autoencoder(Model):
 			print("No marker specific variable.")
 
 
-	def call(self, input_data, is_training = True, verbose = False):
+	def call(self, input_data, targets=None, is_training = True, verbose = False):
 		'''
 		The forward pass of the model. Given inputs, calculate the output of the model.
 
@@ -211,7 +211,10 @@ class Autoencoder(Model):
 				encoded_data = x
 				if self.noise_std and not have_encoded_raw:
 					x = self.noise_layer(x, training = is_training)
-				x = tf.concat((x, x*x), axis=-1)
+				flipsquare = False
+				if self.regularizer and "flipsquare" in self.regularizer:
+					flipsquare = self.regularizer["flipsquare"]
+				x = tf.concat((x, (x*x) * (tf.sign(x) if flipsquare else 1.0)), axis=-1)
 
 
 			if "Residual" in layer_name:
@@ -227,20 +230,23 @@ class Autoencoder(Model):
 				x = self.injectms(verbose, x, layer_name, nms_tiled, self.nms_variable)
 
 			if verbose:
-				print("--- shape: {0}".format(x.shape))
+				print("--- shape: {0}".format(x.shape))		
 
 		if self.regularizer:
 			reg_module = eval(self.regularizer["module"])
 			reg_name = getattr(reg_module, self.regularizer["class"])
 			reg_func = reg_name(float(self.regularizer["reg_factor"]))
 
-			# if this is a clustering model then the regularization is added to the raw encoding, not the softmaxed one
+			# if this is a clustering self then the regularization is added to the raw encoding, not the softmaxed one
 			#if have_encoded_raw:
 			#	reg_loss = reg_func(encoded_data_raw)
 			#else:
 			#	reg_loss = reg_func(encoded_data)
 			reg_loss = self.regularizer["reg_factor"] * tf.reduce_sum(tf.math.maximum(0., tf.square(encoded_data) - 40000.))
+			self.add_loss(reg_loss)
+		if targets is not None:
 			shifted = tf.stop_gradient(tf.roll(encoded_data, 1, axis=0))
+			shifted_targets = tf.stop_gradient(tf.roll(targets, 1, axis=0))
 			diff = encoded_data - shifted
 			diff += tf.where(tf.sign(diff) < 0, -1e-19, 1e-19)
 			mean = tf.math.reduce_mean(encoded_data, axis=0, keepdims=True)
@@ -249,11 +255,11 @@ class Autoencoder(Model):
 			#diff *= tf.expand_dims(tf.where(smalleralong, 0.0, 1.0), axis=-1)
 			#norm = tf.expand_dims(tf.norm(diff, ord = 2, axis = -1), axis=-1)
 			# tf.stop_gradient(diff / (norm + 1e-19)) * 
-			self.add_loss(self.regularizer["rep_factor"] * tf.math.reduce_sum(tf.math.minimum(self.regularizer["max_rep"], tf.math.exp(-tf.square(tf.norm(diff, ord = self.regularizer["ord"], axis = -1))))))
+			r2 = (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))**tf.cast(self.regularizer["ord"], tf.float32)
+			##self.add_loss(tf.math.reduce_sum(tf.math.reduce_mean(tf.where(targets == shifted_targets, 0.0, 1.0), axis=-1) * self.regularizer["rep_factor"] * tf.math.minimum(self.regularizer["max_rep"], tf.math.exp(-r2))))
+			self.add_loss(tf.math.reduce_sum(tf.math.reduce_mean(tf.where(targets == shifted_targets, 0.0, 1.0), axis=-1) * self.regularizer["rep_factor"] * tf.math.minimum(self.regularizer["max_rep"], r2**-6.0 - r2**-3.0)))
 			# tf.norm(diff, ord = 2, axis = -1)
 			# * f.math.l2_normalize(diff, axis = -1)
-			self.add_loss(reg_loss)
-
 		return x, encoded_data
 
 
@@ -323,7 +329,7 @@ def run_optimization(model, optimizer, loss_function, input, targets):
 	:return: value of the loss function
 	'''
 	with tf.GradientTape() as g:
-		output, encoded_data = model(input, is_training=True)
+		output, encoded_data = model(input, targets, is_training=True)
 		loss_value = loss_function(y_pred = output, y_true = targets)
 		loss_value += sum(model.losses)
 
