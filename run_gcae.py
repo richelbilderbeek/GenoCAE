@@ -49,6 +49,7 @@ import asyncio
 
 #mirrored_strategy = tf.distribute.MirroredStrategy()
 #tf.debugging.enable_check_numerics()
+ge = tf.random.Generator.from_seed(1)
 
 class Autoencoder(Model):
 
@@ -207,10 +208,10 @@ class Autoencoder(Model):
 				encoded_data_raw = x
 
 			# If this is the encoding layer, we add noise if we are training
-			if layer_name == "encoded":
-				encoded_data = x
+			if layer_name == "encoded":				
 				if self.noise_std and not have_encoded_raw:
 					x = self.noise_layer(x, training = is_training)
+				encoded_data = x					
 				flipsquare = False
 				if self.regularizer and "flipsquare" in self.regularizer:
 					flipsquare = self.regularizer["flipsquare"]
@@ -245,21 +246,25 @@ class Autoencoder(Model):
 			reg_loss = self.regularizer["reg_factor"] * tf.reduce_sum(tf.math.maximum(0., tf.square(encoded_data) - 40000.))
 			self.add_loss(reg_loss)
 		if targets is not None:
-			shifted = tf.stop_gradient(tf.roll(encoded_data, 1, axis=0))
-			shifted_targets = tf.stop_gradient(tf.roll(targets, 1, axis=0))
-			diff = encoded_data - shifted
-			diff += tf.where(tf.sign(diff) < 0, -1e-19, 1e-19)
-			mean = tf.math.reduce_mean(encoded_data, axis=0, keepdims=True)
-			#diff *= tf.expand_dims(tf.where(tf.norm(shifted - mean, axis = -1) < tf.norm(encoded_data - mean, axis = -1), 1.0, 0.0), axis=-1)
-			smalleralong = tf.math.reduce_sum(tf.square(encoded_data - mean), axis = -1) < tf.math.reduce_sum((encoded_data - mean) * (shifted - mean), axis = -1)
-			#diff *= tf.expand_dims(tf.where(smalleralong, 0.0, 1.0), axis=-1)
-			#norm = tf.expand_dims(tf.norm(diff, ord = 2, axis = -1), axis=-1)
-			# tf.stop_gradient(diff / (norm + 1e-19)) * 
-			r2 = (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))**tf.cast(self.regularizer["ord"], tf.float32)
-			##self.add_loss(tf.math.reduce_sum(tf.math.reduce_mean(tf.where(targets == shifted_targets, 0.0, 1.0), axis=-1) * self.regularizer["rep_factor"] * tf.math.minimum(self.regularizer["max_rep"], tf.math.exp(-r2))))
-			self.add_loss(tf.math.reduce_sum(tf.math.reduce_mean(tf.where(targets == shifted_targets, 0.0, 1.0), axis=-1) * self.regularizer["rep_factor"] * tf.math.minimum(self.regularizer["max_rep"], r2**-6.0 - r2**-3.0)))
-			# tf.norm(diff, ord = 2, axis = -1)
-			# * f.math.l2_normalize(diff, axis = -1)
+			reploss = tf.constant(0., tf.float32)
+			for i in range(1, tf.shape(encoded_data)[0]):
+				shifted = tf.stop_gradient(tf.roll(encoded_data, i, axis=0))
+				shifted_targets = tf.stop_gradient(tf.roll(targets, i, axis=0))
+				diff = encoded_data - shifted
+				diff += tf.where(tf.sign(diff) < 0, -1e-19, 1e-19)
+				mean = tf.math.reduce_mean(encoded_data, axis=0, keepdims=True)
+				#diff *= tf.expand_dims(tf.where(tf.norm(shifted - mean, axis = -1) < tf.norm(encoded_data - mean, axis = -1), 1.0, 0.0), axis=-1)
+				smalleralong = tf.math.reduce_sum(tf.square(encoded_data - mean), axis = -1) < tf.math.reduce_sum((encoded_data - mean) * (shifted - mean), axis = -1)
+				mismatch = tf.math.reduce_mean(tf.where(targets == shifted_targets, 0.0, 1.0), axis=-1)
+				#diff *= tf.expand_dims(tf.where(smalleralong, 0.0, 1.0), axis=-1)
+				#norm = tf.expand_dims(tf.norm(diff, ord = 2, axis = -1), axis=-1)
+				# tf.stop_gradient(diff / (norm + 1e-19)) * 
+				r2 = (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))**tf.cast(self.regularizer["ord"], tf.float32) + self.regularizer["max_rep"]
+				reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * (mismatch * tf.math.exp(-r2) - 0.05 * tf.math.exp(-r2*0.5) - 0.05 * tf.math.exp(-r2*0.05)))
+				#self.add_loss(tf.math.reduce_sum(self.regularizer["rep_factor"] * (tf.math.reduce_mean(tf.where(targets == shifted_targets, 0.0, 1.0), axis=-1) * r2**-6.0 - r2**-3.0)))
+				# tf.norm(diff, ord = 2, axis = -1)
+				# * f.math.l2_normalize(diff, axis = -1)
+			self.add_loss(reploss)
 		return x, encoded_data
 
 
@@ -317,7 +322,7 @@ class Autoencoder(Model):
 		return x
 
 @tf.function
-def run_optimization(model, optimizer, loss_function, input, targets):
+def run_optimization(model, optimizer, optimizer2, loss_function, input, targets, pure):
 	'''
 	Run one step of optimization process based on the given data.
 
@@ -328,14 +333,19 @@ def run_optimization(model, optimizer, loss_function, input, targets):
 	:param targets: target data
 	:return: value of the loss function
 	'''
+	val = ge.uniform((), minval=0, maxval=1.0)
+	full_loss = val < 0.1
 	with tf.GradientTape() as g:
 		output, encoded_data = model(input, targets, is_training=True)
-		loss_value = loss_function(y_pred = output, y_true = targets)
+		loss_value = loss_function(y_pred = output, y_true = targets) * (1.0 if pure or full_loss else 0.0)
 		loss_value += sum(model.losses)
 
 	gradients = g.gradient(loss_value, model.trainable_variables)
-
-	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+	if pure or full_loss:
+		optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+	if pure or not full_loss:
+		optimizer2.apply_gradients(zip(gradients, model.trainable_variables))
+	tf.print(loss_value, full_loss)
 	return loss_value
 
 
@@ -657,6 +667,7 @@ def main():
 
 		autoencoder = Autoencoder(model_architecture, n_markers, noise_std, regularizer)
 		optimizer = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.9, beta_2 = 0.9)
+		optimizer2 = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.9, beta_2 = 0.9)
 
 		if resume_from:
 			print("\n______________________________ Resuming training from epoch {0} ______________________________".format(resume_from))
@@ -671,7 +682,7 @@ def main():
 
 			# This initializes the variables used by the optimizers,
 			# as well as any stateful metric variables
-			run_optimization(autoencoder, optimizer, loss_func, input_init, targets_init)
+			run_optimization(autoencoder, optimizer, optimizer2, loss_func, input_init, targets_init, True)
 			autoencoder.load_weights(weights_file_prefix)
 
 		print("\n______________________________ Train ______________________________")
@@ -716,7 +727,7 @@ def main():
 				
 				def step():
 					
-					train_batch_loss = run_optimization(autoencoder, optimizer, loss_func, batch_input, batch_target)
+					train_batch_loss = run_optimization(autoencoder, optimizer, optimizer2, loss_func, batch_input, batch_target, False)
 					train_losses.append(train_batch_loss)
 				#prevcoro2 = prevcoro
 				prevcoro = [asyncio.get_event_loop().run_in_executor(None, step)]
@@ -828,6 +839,7 @@ def main():
 
 		autoencoder = Autoencoder(model_architecture, n_markers, noise_std, regularizer)
 		optimizer = tf.optimizers.Adam(learning_rate = learning_rate)
+		optimizer2 = tf.optimizers.Adam(learning_rate = learning_rate)
 
 		genotype_concordance_metric = GenotypeConcordance()
 
