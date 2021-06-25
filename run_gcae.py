@@ -251,7 +251,7 @@ class Autoencoder(Model):
 				shifted = tf.stop_gradient(tf.roll(encoded_data, i, axis=0))
 				shifted_targets = tf.stop_gradient(tf.roll(targets, i, axis=0))
 				diff = encoded_data - shifted
-				diff += tf.where(tf.sign(diff) < 0, -1e-19, 1e-19)
+				diff = tf.where(tf.expand_dims(tf.sign(diff[:,0]) >= 0, axis = -1), diff, 0.)
 				mean = tf.math.reduce_mean(encoded_data, axis=0, keepdims=True)
 				#diff *= tf.expand_dims(tf.where(tf.norm(shifted - mean, axis = -1) < tf.norm(encoded_data - mean, axis = -1), 1.0, 0.0), axis=-1)
 				smalleralong = tf.math.reduce_sum(tf.square(encoded_data - mean), axis = -1) < tf.math.reduce_sum((encoded_data - mean) * (shifted - mean), axis = -1)
@@ -322,7 +322,7 @@ class Autoencoder(Model):
 		return x
 
 @tf.function
-def run_optimization(model, optimizer, optimizer2, loss_function, input, targets, pure):
+def run_optimization(model, optimizer, optimizer2, loss_function, input, targets, poplist, pure):
 	'''
 	Run one step of optimization process based on the given data.
 
@@ -338,6 +338,8 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 	with tf.GradientTape() as g:
 		output, encoded_data = model(input, targets, is_training=True)
 		loss_value = loss_function(y_pred = output, y_true = targets) * (1.0 if pure or full_loss else 0.0)
+		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
+		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
 		loss_value += sum(model.losses)
 
 	gradients = g.gradient(loss_value, model.trainable_variables)
@@ -365,6 +367,7 @@ def alfreqvector(y_pred):
 		alfreq = tf.keras.activations.sigmoid(y_pred)
 		alfreq = tf.expand_dims(alfreq, -1)
 		return tf.concat(((1-alfreq) ** 2, 2 * alfreq * (1 - alfreq), alfreq ** 2), axis=-1)
+		#return tf.concat(((1-alfreq), alfreq), axis=-1)
 	else:
 		return y_pred#tf.nn.softmax(y_pred)
 
@@ -558,17 +561,21 @@ def main():
 
 			return orig_nonmissing_mask
 
-		if loss_class == tf.keras.losses.CategoricalCrossentropy or loss_class == tf.keras.losses.KLDivergence:
+		if loss_class == tf.keras.losses.CategoricalCrossentropy or loss_class == tf.keras.losses.KLDivergence or True:
 
 			def loss_func(y_pred, y_true):
 				y_pred = y_pred[:, 0:n_markers]
+				#y_pred = alfreqvector(y_pred)
+				#y_true = tf.one_hot(tf.cast(y_true * 2, tf.uint8), 3)
+				#y1 = y_true[:, :, 0] + 0.5 * y_true[:, :, 1]
+				#y_true = tf.stack((y1, 1.0 - y1), axis = -1)
 
 
 
-				if not fill_missing:
-					orig_nonmissing_mask = get_originally_nonmissing_mask(y_true)
-				else:
-					orig_nonmissing_mask = np.full(y_true.shape, True)
+				#if not fill_missing:
+				#	orig_nonmissing_mask = get_originally_nonmissing_mask(y_true)
+				#else:
+				#	orig_nonmissing_mask = np.full(y_true.shape, True)
 
 				y_pred = alfreqvector(y_pred)
 				y_true = tf.one_hot(tf.cast(y_true * 2, tf.uint8), 3)*0.9997 + 0.0001
@@ -579,7 +586,7 @@ def main():
 				#tf.print("YMASK", tf.math.zero_fraction(orig_nonmissing_mask))
 				#tf.print("PRED", y_pred[orig_nonmissing_mask,:])
 				#tf.print("TRUE", y_true[orig_nonmissing_mask,:])
-				return loss_obj(y_pred = y_pred, y_true = y_true)
+				return 0.5 * loss_obj(y_pred = y_pred, y_true = y_true) + 0.5 * loss_obj(y_pred = tf.math.reduce_mean(y_pred, axis = 0, keepdims = True), y_true = tf.math.reduce_mean(y_true, axis = 0, keepdims = True))
 
 
 		else:
@@ -666,8 +673,8 @@ def main():
 		print("")
 
 		autoencoder = Autoencoder(model_architecture, n_markers, noise_std, regularizer)
-		optimizer = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.9, beta_2 = 0.9)
-		optimizer2 = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.9, beta_2 = 0.9)
+		optimizer = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
+		optimizer2 = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
 
 		if resume_from:
 			print("\n______________________________ Resuming training from epoch {0} ______________________________".format(resume_from))
@@ -675,14 +682,14 @@ def main():
 			print("Reading weights from {0}".format(weights_file_prefix))
 
 			# get a single sample to run through optimization to reload weights and optimizer variables
-			input_init, targets_init, _= dg.get_train_batch(0.0, 1)
+			input_init, targets_init, poplist = dg.get_train_batch(0.0, 1)
 			dg.reset_batch_index()
 			if not missing_mask_input:
 				input_init = input_init[:,:,0, np.newaxis]
 
 			# This initializes the variables used by the optimizers,
 			# as well as any stateful metric variables
-			run_optimization(autoencoder, optimizer, optimizer2, loss_func, input_init, targets_init, True)
+			run_optimization(autoencoder, optimizer, optimizer2, loss_func, input_init, targets_init, poplist, True)
 			autoencoder.load_weights(weights_file_prefix)
 
 		print("\n______________________________ Train ______________________________")
@@ -715,9 +722,9 @@ def main():
 
 				# last batch is probably not full
 				if ii == n_train_batches - 1:
-					batch_input, batch_target, _ = dg.get_train_batch(sparsify_fraction, n_train_samples_last_batch)
+					batch_input, batch_target, poplist = dg.get_train_batch(sparsify_fraction, n_train_samples_last_batch)
 				else:
-					batch_input, batch_target , _ = dg.get_train_batch(sparsify_fraction, batch_size)
+					batch_input, batch_target, poplist = dg.get_train_batch(sparsify_fraction, batch_size)
 
 				# TODO temporary solution: should fix data generator so it doesnt bother with the mask if not needed
 				if not missing_mask_input:
@@ -727,7 +734,7 @@ def main():
 				
 				def step():
 					
-					train_batch_loss = run_optimization(autoencoder, optimizer, optimizer2, loss_func, batch_input, batch_target, False)
+					train_batch_loss = run_optimization(autoencoder, optimizer, optimizer2, loss_func, batch_input, batch_target, poplist, False)
 					train_losses.append(train_batch_loss)
 				#prevcoro2 = prevcoro
 				prevcoro = [asyncio.get_event_loop().run_in_executor(None, step)]
@@ -946,7 +953,7 @@ def main():
 				true_genotypes = targets_train
 				genotype_concordance_metric.update_state(y_pred = genotypes_output[orig_nonmissing_mask], y_true = true_genotypes[orig_nonmissing_mask])
 
-			elif train_opts["loss"]["class"] in ["CategoricalCrossentropy", "KLDivergence"] and data_opts["norm_mode"] == "genotypewise01":
+			elif (True or train_opts["loss"]["class"] in ["CategoricalCrossentropy", "KLDivergence"]) and data_opts["norm_mode"] == "genotypewise01":
 				genotypes_output = tf.cast(tf.argmax(alfreqvector(decoded_train[:, 0:n_markers]), axis = -1), tf.float16) * 0.5
 				true_genotypes = targets_train
 				genotype_concordance_metric.update_state(y_pred = genotypes_output[orig_nonmissing_mask], y_true = true_genotypes[orig_nonmissing_mask])
