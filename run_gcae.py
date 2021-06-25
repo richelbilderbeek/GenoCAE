@@ -579,6 +579,7 @@ def main():
 
 				y_pred = alfreqvector(y_pred)
 				y_true = tf.one_hot(tf.cast(y_true * 2, tf.uint8), 3)*0.9997 + 0.0001
+				y_true2 = y_true*0.997 + 0.001
 
 				#tf.print("YPRED", y_pred)
 				#tf.print("YTRUE", y_true)
@@ -586,7 +587,8 @@ def main():
 				#tf.print("YMASK", tf.math.zero_fraction(orig_nonmissing_mask))
 				#tf.print("PRED", y_pred[orig_nonmissing_mask,:])
 				#tf.print("TRUE", y_true[orig_nonmissing_mask,:])
-				return 0.5 * loss_obj(y_pred = y_pred, y_true = y_true) + 0.5 * loss_obj(y_pred = tf.math.reduce_mean(y_pred, axis = 0, keepdims = True), y_true = tf.math.reduce_mean(y_true, axis = 0, keepdims = True))
+				return -tf.math.reduce_mean(tf.math.reduce_sum(tf.math.log(y_pred+1e-30) * y_true, axis = 0) / tf.math.reduce_sum(y_true2, axis=0))
+				#return 0.5 * loss_obj(y_pred = y_pred, y_true = y_true) + 0.5 * loss_obj(y_pred = tf.math.reduce_mean(y_pred, axis = 0, keepdims = True), y_true = tf.math.reduce_mean(y_true, axis = 0, keepdims = True))
 
 
 		else:
