@@ -212,13 +212,15 @@ class Autoencoder(Model):
 				if self.noise_std and not have_encoded_raw:
 					x = self.noise_layer(x, training = is_training)
 				encoded_data_pure = x
-				y = tf.math.mod(x + 50., 100.)
+				encoded_data = x
 				x = tf.math.mod(x, 100.)
-				encoded_data = x					
+				
+									
 				flipsquare = False
 				if self.regularizer and "flipsquare" in self.regularizer:
 					flipsquare = self.regularizer["flipsquare"]
-				x = tf.concat((x, y), axis=-1)
+				x = x + tf.where(x < ge.uniform(tf.shape(x), minval=0, maxval=100.0), 100.0, 0.)
+				#x = tf.concat((x, y), axis=-1)
 				#, (x*x) * (tf.sign(x) if flipsquare else 1.0), (y*y) * (tf.sign(y) if flipsquare else 1.0)
 
 
@@ -247,7 +249,7 @@ class Autoencoder(Model):
 			#	reg_loss = reg_func(encoded_data_raw)
 			#else:
 			#	reg_loss = reg_func(encoded_data)
-			reg_loss = self.regularizer["reg_factor"] * tf.reduce_sum(tf.math.maximum(0., tf.square(encoded_data_pure) - 4 * 40000.))
+			reg_loss = self.regularizer["reg_factor"] * tf.reduce_sum(tf.math.maximum(0., tf.square(encoded_data_pure) - 1 * 40000.))
 			self.add_loss(reg_loss)
 		if targets is not None:
 			reploss = tf.constant(0., tf.float32)
@@ -255,6 +257,9 @@ class Autoencoder(Model):
 				shifted = tf.stop_gradient(tf.roll(encoded_data, i, axis=0))
 				shifted_targets = tf.stop_gradient(tf.roll(targets, i, axis=0))
 				diff = encoded_data - shifted
+				diff = tf.math.mod(diff, 100.)
+				diff += tf.where(diff < -50., 100., 0.)
+				diff += tf.where(diff > 50., -100., 0.)
 				#diff = tf.where(tf.expand_dims(tf.sign(diff[:,0]) >= 0, axis = -1), diff, 0.)
 				mean = tf.math.reduce_mean(encoded_data, axis=0, keepdims=True)
 				#diff *= tf.expand_dims(tf.where(tf.norm(shifted - mean, axis = -1) < tf.norm(encoded_data - mean, axis = -1), 1.0, 0.0), axis=-1)
@@ -344,6 +349,7 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 		output, encoded_data = model(input, targets, is_training=True)
 		if pure or full_loss:
 			loss_value = loss_function(y_pred = output, y_true = targets)
+			loss_value += sum(model.losses)
 		else:
 			loss_value = sum(model.losses)
 			y_pred = output - tf.stop_gradient(tf.math.reduce_max(output, axis=-1, keepdims=True))
