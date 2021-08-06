@@ -349,11 +349,10 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 		output, encoded_data = model(input, targets, is_training=True)
 		if pure or full_loss:
 			loss_value = loss_function(y_pred = output, y_true = targets)
-			loss_value += sum(model.losses)
-		else:
-			loss_value = sum(model.losses)
+			
+		else:			
 			y_pred = output - tf.stop_gradient(tf.math.reduce_max(output, axis=-1, keepdims=True))
-			loss_value -= tf.math.reduce_mean(tf.square(y_pred - tf.roll(y_pred, 1, axis = 0)) * 1e-1)
+			loss_value = -tf.math.reduce_mean(tf.square(y_pred - tf.roll(y_pred, 1, axis = 0)) * 1e-1)
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
 		
@@ -361,14 +360,16 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 
 	orig_loss = loss_value
 
-	##with tf.GradientTape() as g2:
-	##	output, encoded_data = model(input, targets, is_training=True)
+	with tf.GradientTape() as g2:
+		output, encoded_data = model(input, targets, is_training=True)
 		#loss_value = loss_function(y_pred = output, y_true = targets) * (1.0 if pure or full_loss else 0.0)
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
-	##	loss_value = sum(model.losses)
+		loss_value = sum(model.losses)
 
-	##gradients2 = g2.gradient(loss_value, model.trainable_variables)
+	gradients2 = g2.gradient(loss_value, model.trainable_variables)
+	other_loss = loss_value
+	loss_value = orig_loss
 	##radients3 = []
 
 	##loss_value += orig_loss
@@ -383,13 +384,30 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 	##		summed = g1 + g2
 	##		g3 = tf.where(tf.math.sign(g1 * g2) >= 0, summed, tf.math.sign(summed) * tf.math.minimum(0.5 * tf.math.minimum(tf.abs(g1), tf.abs(g2)), tf.abs(summed)))
 	##	gradients3.append(g3)
+	alphanom = tf.constant(0.)
+	alphadenom = tf.constant(0.)
+	for g1, g2 in zip(gradients, gradients2):
+		if g1 is not None and g2 is not None:
+			gdiff = g2 - g1
+			alphanom += tf.math.reduce_sum(gdiff * g2)
+			alphadenom += tf.math.reduce_sum(gdiff * gdiff)
+	alpha = alphanom / alphadenom
+	gradients3 = []
+	cappedalpha = tf.clip_by_value(alpha, 0., 1.)
+	for g1, g2 in zip(gradients, gradients2):
+		if g1 is None:
+			gradients3.append(g2)
+		elif g2 is None:
+			gradients3.append(g1)
+		else:
+			gradients3.append(g1 * (1 - cappedalpha) + g2 * (cappedalpha))
 
 	if pure or full_loss:
-		optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+		optimizer.apply_gradients(zip(gradients3, model.trainable_variables))
 	#if pure or not full_loss:
 	#	# was optimizer2
 	#	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-	tf.print(loss_value, full_loss)
+	tf.print(loss_value, other_loss, full_loss, alpha)
 	return loss_value
 
 
