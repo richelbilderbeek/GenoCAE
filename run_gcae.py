@@ -343,16 +343,15 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 	:return: value of the loss function
 	'''
 	val = ge.uniform((), minval=0, maxval=1.0)
-	full_loss = val < 0.5
-	#full_loss = True
+	#full_loss = val < 0.5
+	full_loss = True
 	with tf.GradientTape() as g:
 		output, encoded_data = model(input, targets, is_training=True)
 		if pure or full_loss:
 			loss_value = loss_function(y_pred = output, y_true = targets)
 			
-		else:			
-			y_pred = output - tf.stop_gradient(tf.math.reduce_max(output, axis=-1, keepdims=True))
-			loss_value = -tf.math.reduce_mean(tf.square(y_pred - tf.roll(y_pred, 1, axis = 0)) * 1e-1)
+		#else:			
+			
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
 		
@@ -366,9 +365,20 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
 		loss_value = sum(model.losses)
-
 	gradients2 = g2.gradient(loss_value, model.trainable_variables)
 	other_loss = loss_value
+
+	with tf.GradientTape() as g3:		
+		output, encoded_data = model(input, targets, is_training=True)
+		#loss_value = loss_function(y_pred = output, y_true = targets) * (1.0 if pure or full_loss else 0.0)
+		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
+		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
+		y_pred = output - tf.stop_gradient(tf.math.reduce_max(output, axis=-1, keepdims=True))
+		loss_value = -tf.math.reduce_mean(tf.square(y_pred - tf.roll(y_pred, 1, axis = 0)) * 1e-3)
+	gradientsb = g3.gradient(loss_value, model.trainable_variables)
+	other_loss2 = loss_value
+	
+	
 	loss_value = orig_loss
 	##radients3 = []
 
@@ -384,30 +394,34 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 	##		summed = g1 + g2
 	##		g3 = tf.where(tf.math.sign(g1 * g2) >= 0, summed, tf.math.sign(summed) * tf.math.minimum(0.5 * tf.math.minimum(tf.abs(g1), tf.abs(g2)), tf.abs(summed)))
 	##	gradients3.append(g3)
-	alphanom = tf.constant(0.)
-	alphadenom = tf.constant(0.)
-	for g1, g2 in zip(gradients, gradients2):
-		if g1 is not None and g2 is not None:
-			gdiff = g2 - g1
-			alphanom += tf.math.reduce_sum(gdiff * g2)
-			alphadenom += tf.math.reduce_sum(gdiff * gdiff)
-	alpha = alphanom / alphadenom
-	gradients3 = []
-	cappedalpha = tf.clip_by_value(alpha, 0., 1.)
-	for g1, g2 in zip(gradients, gradients2):
-		if g1 is None:
-			gradients3.append(g2)
-		elif g2 is None:
-			gradients3.append(g1)
-		else:
-			gradients3.append(g1 * (1 - cappedalpha) + g2 * (cappedalpha))
+	def combine(gradients, gradients2):
+		alphanom = tf.constant(0.)
+		alphadenom = tf.constant(0.)
+		for g1, g2 in zip(gradients, gradients2):
+			if g1 is not None and g2 is not None:
+				gdiff = g2 - g1
+				alphanom += tf.math.reduce_sum(gdiff * g2)
+				alphadenom += tf.math.reduce_sum(gdiff * gdiff)
+		alpha = alphanom / alphadenom
+		gradients3 = []
+		cappedalpha = tf.clip_by_value(alpha, 0., 1.)
+		for g1, g2 in zip(gradients, gradients2):
+			if g1 is None:
+				gradients3.append(g2)
+			elif g2 is None:
+				gradients3.append(g1)
+			else:
+				gradients3.append(g1 * (cappedalpha) + g2 * (1 - cappedalpha))
+		return (gradients3, alpha)
 
+	gradients3, alpha2 = combine(gradients, gradientsb)
+	gradients3, alpha = combine(gradients3, gradients2)
 	if pure or full_loss:
 		optimizer.apply_gradients(zip(gradients3, model.trainable_variables))
 	#if pure or not full_loss:
 	#	# was optimizer2
 	#	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-	tf.print(loss_value, other_loss, full_loss, alpha)
+	tf.print(loss_value, other_loss2, other_loss, full_loss, alpha2, alpha)
 	return loss_value
 
 
@@ -623,7 +637,7 @@ def main():
 
 		if loss_class == tf.keras.losses.CategoricalCrossentropy or loss_class == tf.keras.losses.KLDivergence or True:
 
-			def loss_func(y_pred, y_true):
+			def loss_func(y_pred, y_true, pow=1.):
 				y_pred = y_pred[:, 0:n_markers]
 				#y_pred = alfreqvector(y_pred)
 				#y_true = tf.one_hot(tf.cast(y_true * 2, tf.uint8), 3)
@@ -652,6 +666,7 @@ def main():
 				                                                    
 				###return -tf.math.reduce_mean(tf.math.reduce_sum(tf.math.log(y_pred+1e-30) * y_true, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
 				#return -tf.math.reduce_mean(tf.math.reduce_sum(      (tf.clip_by_value(y_pred,-10,10)-tf.math.reduce_max(y_pred, axis=-1, keepdims=True)) * y_true, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
+				y_pred *= pow
 				y_pred = y_pred - tf.stop_gradient(tf.math.reduce_max(y_pred, axis=-1, keepdims=True))
 				return -tf.math.reduce_mean(tf.math.reduce_sum(      (y_pred-tf.math.log(tf.math.reduce_sum(tf.math.exp(y_pred), axis=-1, keepdims=True))) * y_true, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
 				#return 0.5 * loss_obj(y_pred = y_pred, y_true = y_true) + 0.5 * loss_obj(y_pred = tf.math.reduce_mean(y_pred, axis = 0, keepdims = True), y_true = tf.math.reduce_mean(y_true, axis = 0, keepdims = True))
