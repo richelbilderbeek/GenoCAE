@@ -359,6 +359,19 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 
 	orig_loss = loss_value
 
+	with tf.GradientTape() as g4:
+		output, encoded_data = model(input, targets, is_training=True)
+		if pure or full_loss:
+			loss_value = loss_function(y_pred = output, y_true = targets, pow=2.)
+			
+		#else:			
+			
+		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
+		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
+		
+	gradientssq = g4.gradient(loss_value, model.trainable_variables)
+	other_loss3 = loss_value
+
 	with tf.GradientTape() as g2:
 		output, encoded_data = model(input, targets, is_training=True)
 		#loss_value = loss_function(y_pred = output, y_true = targets) * (1.0 if pure or full_loss else 0.0)
@@ -411,17 +424,18 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 			elif g2 is None:
 				gradients3.append(g1)
 			else:
-				gradients3.append(g1 * (cappedalpha) + g2 * (1 - cappedalpha))
+				gradients3.append(g1 * (1-cappedalpha) + g2 * (cappedalpha))
 		return (gradients3, alpha)
 
-	gradients3, alpha2 = combine(gradients, gradientsb)
+	gradients3, alpha2 = combine(gradients, gradientssq)
+	gradients3, alpha2 = combine(gradients3, gradientsb)
 	gradients3, alpha = combine(gradients3, gradients2)
 	if pure or full_loss:
 		optimizer.apply_gradients(zip(gradients3, model.trainable_variables))
 	#if pure or not full_loss:
 	#	# was optimizer2
 	#	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-	tf.print(loss_value, other_loss2, other_loss, full_loss, alpha2, alpha)
+	tf.print(loss_value, other_loss3, other_loss2, other_loss, full_loss, alpha3, alpha2, alpha)
 	return loss_value
 
 
