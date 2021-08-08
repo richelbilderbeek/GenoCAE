@@ -269,6 +269,7 @@ class Autoencoder(Model):
 				#norm = tf.expand_dims(tf.norm(diff, ord = 2, axis = -1), axis=-1)
 				# tf.stop_gradient(diff / (norm + 1e-19)) * 
 				r2 = (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))**tf.cast(self.regularizer["ord"], tf.float32) + self.regularizer["max_rep"]
+				r2 *= 0.1
 				reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * (mismatch * tf.math.exp(-r2 * 0.2) - 0.02 * tf.math.exp(-r2*0.5*0.2) - 0.02 * tf.math.exp(-r2*0.05*0.2)))
 				#self.add_loss(tf.math.reduce_sum(self.regularizer["rep_factor"] * (tf.math.reduce_mean(tf.where(targets == shifted_targets, 0.0, 1.0), axis=-1) * r2**-6.0 - r2**-3.0)))
 				# tf.norm(diff, ord = 2, axis = -1)
@@ -427,7 +428,7 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 				gradients3.append(g1 * (1-cappedalpha) + g2 * (cappedalpha))
 		return (gradients3, alpha)
 
-	gradients3, alpha2 = combine(gradients, gradientssq)
+	gradients3, alpha3 = combine(gradients, gradientssq)
 	gradients3, alpha2 = combine(gradients3, gradientsb)
 	gradients3, alpha = combine(gradients3, gradients2)
 	if pure or full_loss:
