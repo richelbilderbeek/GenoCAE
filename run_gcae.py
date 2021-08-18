@@ -211,18 +211,19 @@ class Autoencoder(Model):
 			if layer_name == "encoded":				
 				if self.noise_std and not have_encoded_raw:
 					x = self.noise_layer(x, training = is_training)
+				x += 50.
 				encoded_data_pure = x
 				encoded_data = x
 				rand_data = ge.uniform(tf.shape(encoded_data), minval=0., maxval=100.0)
 				x = tf.stack([rand_data[:,i] if dorand else x[:,i] for i, dorand in enumerate(rander)], axis=1)
-				##x = tf.math.mod(x, 100.)
+				x = tf.math.mod(x, 100.)
 				
 									
 				flipsquare = False
 				if self.regularizer and "flipsquare" in self.regularizer:
 					flipsquare = self.regularizer["flipsquare"]
-				##x = x + tf.where(x < ge.uniform(tf.shape(x), minval=0, maxval=100.0), 100.0, 0.)
-				
+				#x = x + tf.where(x < ge.uniform(tf.shape(x), minval=0, maxval=100.0), 100.0, 0.)
+
 				#x = tf.concat((x, y), axis=-1)
 				#, (x*x) * (tf.sign(x) if flipsquare else 1.0), (y*y) * (tf.sign(y) if flipsquare else 1.0)
 
@@ -260,9 +261,9 @@ class Autoencoder(Model):
 				shifted = tf.stop_gradient(tf.roll(encoded_data, i, axis=0))
 				shifted_targets = tf.stop_gradient(tf.roll(targets, i, axis=0))
 				diff = encoded_data - shifted
-				#diff = tf.math.mod(diff, 100.)
-				#diff += tf.where(diff < -50., 100., 0.)
-				#diff += tf.where(diff > 50., -100., 0.)
+				diff = tf.math.mod(diff, 100.)
+				diff += tf.where(diff < -50., 100., 0.)
+				diff += tf.where(diff > 50., -100., 0.)
 				#diff = tf.where(tf.expand_dims(tf.sign(diff[:,0]) >= 0, axis = -1), diff, 0.)
 				mean = tf.math.reduce_mean(encoded_data, axis=0, keepdims=True)
 				#diff *= tf.expand_dims(tf.where(tf.norm(shifted - mean, axis = -1) < tf.norm(encoded_data - mean, axis = -1), 1.0, 0.0), axis=-1)
