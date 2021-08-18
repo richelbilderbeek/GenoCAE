@@ -138,7 +138,7 @@ class Autoencoder(Model):
 			print("No marker specific variable.")
 
 
-	def call(self, input_data, targets=None, is_training = True, verbose = False):
+	def call(self, input_data, targets=None, is_training = True, verbose = False, rander=[False, False]):
 		'''
 		The forward pass of the model. Given inputs, calculate the output of the model.
 
@@ -197,7 +197,7 @@ class Autoencoder(Model):
 			if layer_name == "dropout":
 				x = layer_def(x, training = is_training)
 			else:
-				x = layer_def(x)
+				x = layer_def(x, training = is_training)
 
 			# If this is a clustering model then we add noise to the layer first in this step
 			# and the next layer, which is sigmoid, is the actual encoding.
@@ -213,13 +213,16 @@ class Autoencoder(Model):
 					x = self.noise_layer(x, training = is_training)
 				encoded_data_pure = x
 				encoded_data = x
-				x = tf.math.mod(x, 100.)
+				rand_data = ge.uniform(tf.shape(encoded_data), minval=0., maxval=100.0)
+				x = tf.stack([rand_data[:,i] if dorand else x[:,i] for i, dorand in enumerate(rander)], axis=1)
+				##x = tf.math.mod(x, 100.)
 				
 									
 				flipsquare = False
 				if self.regularizer and "flipsquare" in self.regularizer:
 					flipsquare = self.regularizer["flipsquare"]
-				x = x + tf.where(x < ge.uniform(tf.shape(x), minval=0, maxval=100.0), 100.0, 0.)
+				##x = x + tf.where(x < ge.uniform(tf.shape(x), minval=0, maxval=100.0), 100.0, 0.)
+				
 				#x = tf.concat((x, y), axis=-1)
 				#, (x*x) * (tf.sign(x) if flipsquare else 1.0), (y*y) * (tf.sign(y) if flipsquare else 1.0)
 
@@ -251,15 +254,15 @@ class Autoencoder(Model):
 			#	reg_loss = reg_func(encoded_data)
 			reg_loss = self.regularizer["reg_factor"] * tf.reduce_sum(tf.math.maximum(0., tf.square(encoded_data_pure) - 1 * 40000.))
 			self.add_loss(reg_loss)
-		if targets is not None:
+		if targets is not None and False:
 			reploss = tf.constant(0., tf.float32)
 			for i in range(1, tf.shape(encoded_data)[0]):
 				shifted = tf.stop_gradient(tf.roll(encoded_data, i, axis=0))
 				shifted_targets = tf.stop_gradient(tf.roll(targets, i, axis=0))
 				diff = encoded_data - shifted
-				diff = tf.math.mod(diff, 100.)
-				diff += tf.where(diff < -50., 100., 0.)
-				diff += tf.where(diff > 50., -100., 0.)
+				#diff = tf.math.mod(diff, 100.)
+				#diff += tf.where(diff < -50., 100., 0.)
+				#diff += tf.where(diff > 50., -100., 0.)
 				#diff = tf.where(tf.expand_dims(tf.sign(diff[:,0]) >= 0, axis = -1), diff, 0.)
 				mean = tf.math.reduce_mean(encoded_data, axis=0, keepdims=True)
 				#diff *= tf.expand_dims(tf.where(tf.norm(shifted - mean, axis = -1) < tf.norm(encoded_data - mean, axis = -1), 1.0, 0.0), axis=-1)
@@ -269,7 +272,7 @@ class Autoencoder(Model):
 				#norm = tf.expand_dims(tf.norm(diff, ord = 2, axis = -1), axis=-1)
 				# tf.stop_gradient(diff / (norm + 1e-19)) * 
 				r2 = (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))**tf.cast(self.regularizer["ord"], tf.float32) + self.regularizer["max_rep"]
-				r2 *= 0.1
+				#r2 *= 0.1
 				reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * (mismatch * tf.math.exp(-r2 * 0.2) - 0.02 * tf.math.exp(-r2*0.5*0.2) - 0.02 * tf.math.exp(-r2*0.05*0.2)))
 				#self.add_loss(tf.math.reduce_sum(self.regularizer["rep_factor"] * (tf.math.reduce_mean(tf.where(targets == shifted_targets, 0.0, 1.0), axis=-1) * r2**-6.0 - r2**-3.0)))
 				# tf.norm(diff, ord = 2, axis = -1)
@@ -360,18 +363,46 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 
 	orig_loss = loss_value
 
-	with tf.GradientTape() as g4:
-		output, encoded_data = model(input, targets, is_training=True)
-		if pure or full_loss:
-			loss_value = loss_function(y_pred = output, y_true = targets, pow=2.)
+	#with tf.GradientTape() as g5:
+	#	output, encoded_data = model(input, targets, is_training=True, rander=[True, False])
+	#	if pure or full_loss:
+	#		loss_value = loss_function(y_pred = output, y_true = targets)
 			
 		#else:			
 			
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
 		
-	gradientssq = g4.gradient(loss_value, model.trainable_variables)
-	other_loss3 = loss_value
+	#gradientsrandy = g5.gradient(loss_value, model.trainable_variables)
+	#other_loss4 = loss_value
+	other_loss4 = 0
+
+	#with tf.GradientTape() as g4:
+	#	output, encoded_data = model(input, targets, is_training=True, rander=[False, True])
+	#	if pure or full_loss:
+	#		loss_value = loss_function(y_pred = output, y_true = targets)
+			
+		#else:			
+			
+		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
+		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
+		
+	#gradientsrandx = g4.gradient(loss_value, model.trainable_variables)
+	#other_loss3 = loss_value
+	other_loss3 = 0
+
+	#with tf.GradientTape() as g4:
+	#	output, encoded_data = model(input, targets, is_training=True)
+	#	if pure or full_loss:
+	#		loss_value = loss_function(y_pred = output, y_true = targets, pow=2.)
+			
+		#else:			
+			
+		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
+		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
+		
+	#gradientssq = g4.gradient(loss_value, model.trainable_variables)
+	#other_loss3 = loss_value
 
 	with tf.GradientTape() as g2:
 		output, encoded_data = model(input, targets, is_training=True)
@@ -382,15 +413,15 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 	gradients2 = g2.gradient(loss_value, model.trainable_variables)
 	other_loss = loss_value
 
-	with tf.GradientTape() as g3:		
-		output, encoded_data = model(input, targets, is_training=True)
-		#loss_value = loss_function(y_pred = output, y_true = targets) * (1.0 if pure or full_loss else 0.0)
+	##with tf.GradientTape() as g3:		
+	##	output, encoded_data = model(input, targets, is_training=True)
+	##	#loss_value = loss_function(y_pred = output, y_true = targets) * (1.0 if pure or full_loss else 0.0)
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
-		y_pred = output - tf.stop_gradient(tf.math.reduce_max(output, axis=-1, keepdims=True))
-		loss_value = -tf.math.reduce_mean(tf.square(y_pred - tf.roll(y_pred, 1, axis = 0)) * 1e-3)
-	gradientsb = g3.gradient(loss_value, model.trainable_variables)
-	other_loss2 = loss_value
+	##	y_pred = output - tf.stop_gradient(tf.math.reduce_max(output, axis=-1, keepdims=True))
+	##	loss_value = -tf.math.reduce_mean(tf.square(y_pred - tf.roll(y_pred, 1, axis = 0)) * 1e-3)
+	##gradientsb = g3.gradient(loss_value, model.trainable_variables)
+	##other_loss2 = loss_value
 	
 	
 	loss_value = orig_loss
@@ -410,7 +441,7 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 	##	gradients3.append(g3)
 	def combine(gradients, gradients2):
 		alphanom = tf.constant(0.)
-		alphadenom = tf.constant(0.)
+		alphadenom = tf.constant(1.0e-30)
 		for g1, g2 in zip(gradients, gradients2):
 			if g1 is not None and g2 is not None:
 				gdiff = g2 - g1
@@ -428,15 +459,21 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 				gradients3.append(g1 * (1-cappedalpha) + g2 * (cappedalpha))
 		return (gradients3, alpha)
 
-	gradients3, alpha3 = combine(gradients, gradientssq)
-	gradients3, alpha2 = combine(gradients3, gradientsb)
-	gradients3, alpha = combine(gradients3, gradients2)
+	#gradients4, alpha4 = combine(gradientsrandx, gradientsrandy)
+	alpha4 = 0
+	alpha3 = 0
+	alpha2 = 0
+	#gradients4 = gradientsrandx
+	#gradients3, alpha3 = combine(gradients, gradients4)
+	#gradients3, alpha2 = combine(gradients3, gradientsb)
+	gradients3, alpha = combine(gradients, gradients2)
 	if pure or full_loss:
 		optimizer.apply_gradients(zip(gradients3, model.trainable_variables))
 	#if pure or not full_loss:
 	#	# was optimizer2
 	#	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-	tf.print(loss_value, other_loss3, other_loss2, other_loss, full_loss, alpha3, alpha2, alpha)
+	#tf.print(loss_value, other_loss4, other_loss3, other_loss2, other_loss, full_loss, alpha4, alpha3, alpha2, alpha)
+	tf.print(loss_value, other_loss4, other_loss3, other_loss, full_loss, alpha4, alpha3, alpha)
 	return loss_value
 
 
@@ -771,8 +808,10 @@ def main():
 		print("")
 
 		autoencoder = Autoencoder(model_architecture, n_markers, noise_std, regularizer)
-		optimizer = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
-		optimizer2 = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
+		#optimizer = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
+		#optimizer2 = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
+		optimizer = tf.optimizers.SGD(learning_rate = lr_schedule)
+		optimizer2 = tf.optimizers.SGD(learning_rate = lr_schedule)
 
 		if resume_from:
 			print("\n______________________________ Resuming training from epoch {0} ______________________________".format(resume_from))
@@ -814,7 +853,7 @@ def main():
 				step_counter += 1
 
 				if sparsify_input:
-					sparsify_fraction = sparsifies[step_counter % len(sparsifies)]
+					sparsify_fraction = sparsifies[np.random.randint(0, len(sparsifies))]
 				else:
 					sparsify_fraction = 0.0
 
