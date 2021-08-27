@@ -211,18 +211,19 @@ class Autoencoder(Model):
 			if layer_name == "encoded":				
 				if self.noise_std and not have_encoded_raw:
 					x = self.noise_layer(x, training = is_training)
-				x += 50.
+				##x += 50.
 				encoded_data_pure = x
-				encoded_data = x
-				rand_data = ge.uniform(tf.shape(encoded_data), minval=0., maxval=100.0)
+				
+				rand_data = ge.uniform(tf.shape(x), minval=0., maxval=100.0)
 				x = tf.stack([rand_data[:,i] if dorand else x[:,i] for i, dorand in enumerate(rander)], axis=1)
 				x = tf.math.mod(x, 100.)
+				encoded_data = x
 				
 									
 				flipsquare = False
 				if self.regularizer and "flipsquare" in self.regularizer:
 					flipsquare = self.regularizer["flipsquare"]
-				#x = x + tf.where(x < ge.uniform(tf.shape(x), minval=0, maxval=100.0), 100.0, 0.)
+				x = x + tf.where(x < ge.uniform(tf.shape(x), minval=0, maxval=100.0), 100.0, 0.)
 
 				#x = tf.concat((x, y), axis=-1)
 				#, (x*x) * (tf.sign(x) if flipsquare else 1.0), (y*y) * (tf.sign(y) if flipsquare else 1.0)
@@ -255,10 +256,12 @@ class Autoencoder(Model):
 			#	reg_loss = reg_func(encoded_data)
 			reg_loss = self.regularizer["reg_factor"] * tf.reduce_sum(tf.math.maximum(0., tf.square(encoded_data_pure) - 1 * 40000.))
 			self.add_loss(reg_loss)
-		if targets is not None and False:
+			tf.print("REG", reg_loss)
+		if targets is not None:
 			reploss = tf.constant(0., tf.float32)
-			for i in range(1, tf.shape(encoded_data)[0]):
+			for i in range(1, tf.shape(encoded_data)[0] - 1):
 				shifted = tf.stop_gradient(tf.roll(encoded_data, i, axis=0))
+				shifted2 = tf.stop_gradient(tf.roll(encoded_data, i + 1, axis=0))
 				shifted_targets = tf.stop_gradient(tf.roll(targets, i, axis=0))
 				diff = encoded_data - shifted
 				diff = tf.math.mod(diff, 100.)
@@ -273,11 +276,35 @@ class Autoencoder(Model):
 				#norm = tf.expand_dims(tf.norm(diff, ord = 2, axis = -1), axis=-1)
 				# tf.stop_gradient(diff / (norm + 1e-19)) * 
 				r2 = (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))**tf.cast(self.regularizer["ord"], tf.float32) + self.regularizer["max_rep"]
-				#r2 *= 0.1
-				reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * (mismatch * tf.math.exp(-r2 * 0.2) - 0.02 * tf.math.exp(-r2*0.5*0.2) - 0.02 * tf.math.exp(-r2*0.05*0.2)))
+				#r2 *= 0.0001
+				#reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * (mismatch * tf.math.exp(-r2 * 0.2)) - 0.02 * tf.math.exp(-r2*0.5*0.2) - 0.02 * tf.math.exp(-r2*0.05*0.2))
+
+				shiftedc = (tf.math.mod(shifted, 100.) + tf.math.mod(shifted2, 100.)) * 0.5
+				shifteddiff = (shifted - shifted2)
+				shifteddiff = tf.math.mod(shifteddiff, 100.)
+				shifteddiff += tf.where(shifteddiff < -50., 100., 0.)
+				shifteddiff += tf.where(shifteddiff > 50., -100., 0.)				
+				if False:
+					shifteddiff = tf.stack((-shifteddiff[:,1], shifteddiff[:,0]), axis=1)
+					seconddiff = encoded_data - shiftedc
+					seconddiff = tf.math.mod(diff, 100.)
+					seconddiff += tf.where(diff < -50., 100., 0.)
+					seconddiff += tf.where(diff > 50., -100., 0.)
+					seconddiff *= shifteddiff
+					seconddiff /= tf.norm(shifteddiff) + 1e-9					
+				else:
+					seconddiff = encoded_data - shiftedc
+					seconddiff -= seconddiff * shifteddiff / (tf.norm(shifteddiff) + 1e-9)
+				diff = seconddiff
+				r2 = (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))**tf.cast(self.regularizer["ord"], tf.float32) + self.regularizer["max_rep"]
+				#r2 *= 0.0001
+				reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * tf.math.exp(-r2 * 0.2))
+
+
 				#self.add_loss(tf.math.reduce_sum(self.regularizer["rep_factor"] * (tf.math.reduce_mean(tf.where(targets == shifted_targets, 0.0, 1.0), axis=-1) * r2**-6.0 - r2**-3.0)))
 				# tf.norm(diff, ord = 2, axis = -1)
 				# * f.math.l2_normalize(diff, axis = -1)
+			tf.print(reploss)
 			self.add_loss(reploss)
 		return x, encoded_data
 
@@ -704,6 +731,7 @@ def main():
 				#else:
 				#	orig_nonmissing_mask = np.full(y_true.shape, True)
 
+				y_trueorig = y_true
 				y_pred = alfreqvector(y_pred)
 				y_true = tf.one_hot(tf.cast(y_true * 2, tf.uint8), 3) * 0.9997 + 0.0001
 				y_true2 = y_true#*0.997 + 0.001
@@ -721,7 +749,9 @@ def main():
 				#return -tf.math.reduce_mean(tf.math.reduce_sum(      (tf.clip_by_value(y_pred,-10,10)-tf.math.reduce_max(y_pred, axis=-1, keepdims=True)) * y_true, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
 				y_pred *= pow
 				y_pred = y_pred - tf.stop_gradient(tf.math.reduce_max(y_pred, axis=-1, keepdims=True))
-				return -tf.math.reduce_mean(tf.math.reduce_sum(      (y_pred-tf.math.log(tf.math.reduce_sum(tf.math.exp(y_pred), axis=-1, keepdims=True))) * y_true, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
+				partialres = (tf.math.reduce_sum(      (y_pred-tf.math.log(tf.math.reduce_sum(tf.math.exp(y_pred), axis=-1, keepdims=True))) * y_true, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
+
+				return -tf.math.reduce_mean(tf.boolean_mask(partialres, ge.uniform(tf.shape(partialres)) < 0.9))
 				#return 0.5 * loss_obj(y_pred = y_pred, y_true = y_true) + 0.5 * loss_obj(y_pred = tf.math.reduce_mean(y_pred, axis = 0, keepdims = True), y_true = tf.math.reduce_mean(y_true, axis = 0, keepdims = True))
 
 
@@ -811,8 +841,8 @@ def main():
 		autoencoder = Autoencoder(model_architecture, n_markers, noise_std, regularizer)
 		#optimizer = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
 		#optimizer2 = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
-		optimizer = tf.optimizers.SGD(learning_rate = lr_schedule)
-		optimizer2 = tf.optimizers.SGD(learning_rate = lr_schedule)
+		optimizer = tf.optimizers.SGD(learning_rate = lr_schedule, momentum=0.99)
+		optimizer2 = tf.optimizers.SGD(learning_rate = lr_schedule, momentum=0.99)
 
 		if resume_from:
 			print("\n______________________________ Resuming training from epoch {0} ______________________________".format(resume_from))
