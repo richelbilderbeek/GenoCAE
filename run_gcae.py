@@ -208,25 +208,29 @@ class Autoencoder(Model):
 				encoded_data_raw = x
 
 			# If this is the encoding layer, we add noise if we are training
-			if layer_name == "encoded":				
+			elif "encoded" in layer_name:				
 				if self.noise_std and not have_encoded_raw:
 					x = self.noise_layer(x, training = is_training)
-				##x += 50.
+				###x += 50.
 				encoded_data_pure = x
 				
 				rand_data = ge.uniform(tf.shape(x), minval=0., maxval=100.0)
 				x = tf.stack([rand_data[:,i] if dorand else x[:,i] for i, dorand in enumerate(rander)], axis=1)
-				x = tf.math.mod(x, 100.)
+				##x = tf.math.mod(x, 100.)
 				encoded_data = x
 				
 									
 				flipsquare = False
 				if self.regularizer and "flipsquare" in self.regularizer:
 					flipsquare = self.regularizer["flipsquare"]
-				x = x + tf.where(x < ge.uniform(tf.shape(x), minval=0, maxval=100.0), 100.0, 0.)
+				##x = x + tf.where(x < ge.uniform(tf.shape(x), minval=0, maxval=100.0), 100.0, 0.)
 
 				#x = tf.concat((x, y), axis=-1)
 				#, (x*x) * (tf.sign(x) if flipsquare else 1.0), (y*y) * (tf.sign(y) if flipsquare else 1.0)
+				if "basis" in layer_name:
+					basis = tf.expand_dims(tf.range(-200., 200., 20.), axis=0)
+					x = tf.clip_by_value(tf.concat([tf.expand_dims(x[:,i], axis=1) - basis for i in range(2)], axis=1), -40., 40.)
+
 
 
 			if "Residual" in layer_name:
@@ -264,9 +268,9 @@ class Autoencoder(Model):
 				shifted2 = tf.stop_gradient(tf.roll(encoded_data, i + 1, axis=0))
 				shifted_targets = tf.stop_gradient(tf.roll(targets, i, axis=0))
 				diff = encoded_data - shifted
-				diff = tf.math.mod(diff, 100.)
-				diff += tf.where(diff < -50., 100., 0.)
-				diff += tf.where(diff > 50., -100., 0.)
+				##diff = tf.math.mod(diff, 100.)
+				##diff += tf.where(diff < -50., 100., 0.)
+				##diff += tf.where(diff > 50., -100., 0.)
 				#diff = tf.where(tf.expand_dims(tf.sign(diff[:,0]) >= 0, axis = -1), diff, 0.)
 				mean = tf.math.reduce_mean(encoded_data, axis=0, keepdims=True)
 				#diff *= tf.expand_dims(tf.where(tf.norm(shifted - mean, axis = -1) < tf.norm(encoded_data - mean, axis = -1), 1.0, 0.0), axis=-1)
@@ -277,13 +281,16 @@ class Autoencoder(Model):
 				# tf.stop_gradient(diff / (norm + 1e-19)) * 
 				r2 = (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))**tf.cast(self.regularizer["ord"], tf.float32) + self.regularizer["max_rep"]
 				#r2 *= 0.0001
-				#reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * (mismatch * tf.math.exp(-r2 * 0.2)) - 0.02 * tf.math.exp(-r2*0.5*0.2) - 0.02 * tf.math.exp(-r2*0.05*0.2))
-
-				shiftedc = (tf.math.mod(shifted, 100.) + tf.math.mod(shifted2, 100.)) * 0.5
+				##reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * (mismatch * tf.math.exp(-r2 * 0.2)) - 0.02 * tf.math.exp(-r2*0.5*0.2) - 0.02 * tf.math.exp(-r2*0.05*0.2))
+				#reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * tf.math.maximum(0., 0.5 - mismatch * -r2))
+				reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * tf.math.maximum(0., 30.0 * mismatch - r2))
+				shiftedc = (shifted + shifted2)*0.5
+				##shiftedc = (tf.math.mod(shifted, 100.) + tf.math.mod(shifted2, 100.)) * 0.5
+				
 				shifteddiff = (shifted - shifted2)
-				shifteddiff = tf.math.mod(shifteddiff, 100.)
-				shifteddiff += tf.where(shifteddiff < -50., 100., 0.)
-				shifteddiff += tf.where(shifteddiff > 50., -100., 0.)				
+				##shifteddiff = tf.math.mod(shifteddiff, 100.)
+				##shifteddiff += tf.where(shifteddiff < -50., 100., 0.)
+				##shifteddiff += tf.where(shifteddiff > 50., -100., 0.)				
 				if False:
 					shifteddiff = tf.stack((-shifteddiff[:,1], shifteddiff[:,0]), axis=1)
 					seconddiff = encoded_data - shiftedc
@@ -294,11 +301,11 @@ class Autoencoder(Model):
 					seconddiff /= tf.norm(shifteddiff) + 1e-9					
 				else:
 					seconddiff = encoded_data - shiftedc
-					seconddiff -= seconddiff * shifteddiff / (tf.norm(shifteddiff) + 1e-9)
+					seconddiff -= shifteddiff * tf.math.reduce_sum(seconddiff * shifteddiff, axis=-1, keepdims=True) / (tf.norm(shifteddiff) + 1e-9)**2
 				diff = seconddiff
 				r2 = (tf.norm(diff, ord = self.regularizer["ord"], axis = -1))**tf.cast(self.regularizer["ord"], tf.float32) + self.regularizer["max_rep"]
 				#r2 *= 0.0001
-				reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * tf.math.exp(-r2 * 0.2))
+				#reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * tf.math.exp(-r2 * 0.2))
 
 
 				#self.add_loss(tf.math.reduce_sum(self.regularizer["rep_factor"] * (tf.math.reduce_mean(tf.where(targets == shifted_targets, 0.0, 1.0), axis=-1) * r2**-6.0 - r2**-3.0)))
@@ -391,19 +398,19 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 
 	orig_loss = loss_value
 
-	#with tf.GradientTape() as g5:
-	#	output, encoded_data = model(input, targets, is_training=True, rander=[True, False])
-	#	if pure or full_loss:
-	#		loss_value = loss_function(y_pred = output, y_true = targets)
+	with tf.GradientTape() as g5:
+		output, encoded_data = model(input, targets, is_training=True)
+		if pure or full_loss:
+			loss_value = -loss_function(y_pred = output, y_true = targets, avg=True)
 			
 		#else:			
 			
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
 		
-	#gradientsrandy = g5.gradient(loss_value, model.trainable_variables)
-	#other_loss4 = loss_value
-	other_loss4 = 0
+	gradientsavg = g5.gradient(loss_value, model.trainable_variables)
+	other_loss4 = loss_value
+	#other_loss4 = 0
 
 	#with tf.GradientTape() as g4:
 	#	output, encoded_data = model(input, targets, is_training=True, rander=[False, True])
@@ -488,13 +495,13 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 		return (gradients3, alpha)
 
 	#gradients4, alpha4 = combine(gradientsrandx, gradientsrandy)
-	alpha4 = 0
+	#alpha4 = 0
+	gradients3, alpha4 = combine(gradients, gradientsavg)
 	alpha3 = 0
 	alpha2 = 0
 	#gradients4 = gradientsrandx
 	#gradients3, alpha3 = combine(gradients, gradients4)
-	#gradients3, alpha2 = combine(gradients3, gradientsb)
-	gradients3, alpha = combine(gradients, gradients2)
+	gradients3, alpha = combine(gradients3, gradients2)
 	if pure or full_loss:
 		optimizer.apply_gradients(zip(gradients3, model.trainable_variables))
 	#if pure or not full_loss:
@@ -717,7 +724,7 @@ def main():
 
 		if loss_class == tf.keras.losses.CategoricalCrossentropy or loss_class == tf.keras.losses.KLDivergence or True:
 
-			def loss_func(y_pred, y_true, pow=1.):
+			def loss_func(y_pred, y_true, pow=1., avg=False):
 				y_pred = y_pred[:, 0:n_markers]
 				#y_pred = alfreqvector(y_pred)
 				#y_true = tf.one_hot(tf.cast(y_true * 2, tf.uint8), 3)
@@ -734,6 +741,8 @@ def main():
 				y_trueorig = y_true
 				y_pred = alfreqvector(y_pred)
 				y_true = tf.one_hot(tf.cast(y_true * 2, tf.uint8), 3) * 0.9997 + 0.0001
+				if avg:
+					y_true = y_true * 0. + tf.math.reduce_mean(y_true, axis=0, keepdims=True)
 				y_true2 = y_true#*0.997 + 0.001
 
 				#tf.print("YPRED", y_pred)
@@ -749,7 +758,10 @@ def main():
 				#return -tf.math.reduce_mean(tf.math.reduce_sum(      (tf.clip_by_value(y_pred,-10,10)-tf.math.reduce_max(y_pred, axis=-1, keepdims=True)) * y_true, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
 				y_pred *= pow
 				y_pred = y_pred - tf.stop_gradient(tf.math.reduce_max(y_pred, axis=-1, keepdims=True))
-				partialres = (tf.math.reduce_sum(      (y_pred-tf.math.log(tf.math.reduce_sum(tf.math.exp(y_pred), axis=-1, keepdims=True))) * y_true, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
+				y_pred_prob = tf.nn.softmax(y_pred)
+				gamma = 4
+				partialres = (tf.math.reduce_sum(      (y_pred-tf.math.log(tf.math.reduce_sum(tf.math.exp(y_pred), axis=-1, keepdims=True))) * y_true * (1 - tf.math.reduce_sum(y_pred_prob * y_true, axis=-1, keepdims=True)/tf.math.reduce_sum(y_true * y_true, axis=-1, keepdims=True))**gamma, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
+				##partialres = (tf.math.reduce_sum(      (y_pred-tf.math.log(tf.math.reduce_sum(tf.math.exp(y_pred), axis=-1, keepdims=True))) * y_true, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
 
 				return -tf.math.reduce_mean(tf.boolean_mask(partialres, ge.uniform(tf.shape(partialres)) < 0.9))
 				#return 0.5 * loss_obj(y_pred = y_pred, y_true = y_true) + 0.5 * loss_obj(y_pred = tf.math.reduce_mean(y_pred, axis = 0, keepdims = True), y_true = tf.math.reduce_mean(y_true, axis = 0, keepdims = True))
@@ -839,10 +851,10 @@ def main():
 		print("")
 
 		autoencoder = Autoencoder(model_architecture, n_markers, noise_std, regularizer)
-		#optimizer = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
-		#optimizer2 = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
-		optimizer = tf.optimizers.SGD(learning_rate = lr_schedule, momentum=0.99)
-		optimizer2 = tf.optimizers.SGD(learning_rate = lr_schedule, momentum=0.99)
+		optimizer = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
+		optimizer2 = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
+		#optimizer = tf.optimizers.SGD(learning_rate = lr_schedule, momentum=0.99)
+		#optimizer2 = tf.optimizers.SGD(learning_rate = lr_schedule, momentum=0.99)
 
 		if resume_from:
 			print("\n______________________________ Resuming training from epoch {0} ______________________________".format(resume_from))
@@ -1005,7 +1017,7 @@ def main():
 		print("Projecting epochs: {0}".format(epochs))
 		print("Already projected: {0}".format(projected_epochs))
 
-		batch_size_project = 50
+		batch_size_project = 30
 		sparsify_fraction = 0.0
 
 		_, _, ind_pop_list_train_reference = dg.get_train_set(sparsify_fraction)
@@ -1072,7 +1084,7 @@ def main():
 
 					decoded_train_batch, encoded_train_batch = autoencoder(input_train_batch, is_training = False)
 					loss_train_batch = loss_func(y_pred = decoded_train_batch, y_true = targets_train_batch)
-					loss_train_batch += sum(autoencoder.losses)
+					#loss_train_batch += sum(autoencoder.losses)
 
 					ind_pop_list_train = np.concatenate((ind_pop_list_train, ind_pop_list_train_batch), axis=0)
 					encoded_train = np.concatenate((encoded_train, encoded_train_batch), axis=0)
@@ -1126,12 +1138,14 @@ def main():
 
 			elif train_opts["loss"]["class"] == "BinaryCrossentropy" and data_opts["norm_mode"] == "genotypewise01":
 				genotypes_output = to_genotypes_sigmoid_round(decoded_train[:, 0:n_markers])
-				true_genotypes = targets_train
-				genotype_concordance_metric.update_state(y_pred = genotypes_output[orig_nonmissing_mask], y_true = true_genotypes[orig_nonmissing_mask])
+				true_genotypes = targets_train #[orig_nonmissing_mask]
+				genotype_concordance_metric.update_state(y_pred = genotypes_output, y_true = true_genotypes)
 
 			elif (True or train_opts["loss"]["class"] in ["CategoricalCrossentropy", "KLDivergence"]) and data_opts["norm_mode"] == "genotypewise01":
+				tf.print("SHERPA", tf.shape(decoded_train))
 				genotypes_output = tf.cast(tf.argmax(alfreqvector(decoded_train[:, 0:n_markers]), axis = -1), tf.float16) * 0.5
 				true_genotypes = targets_train
+				tf.print("SHERPA2", genotypes_output[0:5], true_genotypes[0:5])
 				genotype_concordance_metric.update_state(y_pred = genotypes_output[orig_nonmissing_mask], y_true = true_genotypes[orig_nonmissing_mask])
 
 			else:
