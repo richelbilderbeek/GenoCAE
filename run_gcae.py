@@ -400,8 +400,11 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 
 	with tf.GradientTape() as g5:
 		output, encoded_data = model(input, targets, is_training=True)
-		if pure or full_loss:
-			loss_value = -loss_function(y_pred = output, y_true = targets, avg=True)
+		y_true = tf.one_hot(tf.cast(targets * 2, tf.uint8), 3) * 0.9997 + 0.0001
+		tf.print("FORM", tf.shape(tf.nn.softmax(output[:,0:model.n_markers])))
+		loss_value = tf.math.reduce_sum(tf.math.square(tf.nn.softmax(output[:,0:model.n_markers])-y_true)) * 1e-6
+		#if pure or full_loss:
+		#	loss_value = -loss_function(y_pred = output, y_true = targets, avg=True)
 			
 		#else:			
 			
@@ -741,9 +744,9 @@ def main():
 				y_trueorig = y_true
 				y_pred = alfreqvector(y_pred)
 				y_true = tf.one_hot(tf.cast(y_true * 2, tf.uint8), 3) * 0.9997 + 0.0001
-				if avg:
-					y_true = y_true * 0. + tf.math.reduce_mean(y_true, axis=0, keepdims=True)
 				y_true2 = y_true#*0.997 + 0.001
+				if avg:
+					y_true = y_true * -1./tf.cast(tf.shape(y_true)[0], tf.float32) + tf.math.reduce_mean(y_true, axis=0, keepdims=True)
 
 				#tf.print("YPRED", y_pred)
 				#tf.print("YTRUE", y_true)
