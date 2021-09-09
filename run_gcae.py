@@ -283,7 +283,7 @@ class Autoencoder(Model):
 				#r2 *= 0.0001
 				##reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * (mismatch * tf.math.exp(-r2 * 0.2)) - 0.02 * tf.math.exp(-r2*0.5*0.2) - 0.02 * tf.math.exp(-r2*0.05*0.2))
 				#reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * tf.math.maximum(0., 0.5 - mismatch * -r2))
-				reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * tf.math.maximum(0., 30.0 * mismatch - r2))
+				reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * tf.math.maximum(0., 0.5 * mismatch - r2))
 				shiftedc = (shifted + shifted2)*0.5
 				##shiftedc = (tf.math.mod(shifted, 100.) + tf.math.mod(shifted2, 100.)) * 0.5
 				
@@ -401,7 +401,6 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 	with tf.GradientTape() as g5:
 		output, encoded_data = model(input, targets, is_training=True)
 		y_true = tf.one_hot(tf.cast(targets * 2, tf.uint8), 3)
-		tf.print("FORM", tf.shape(tf.nn.softmax(output[:,0:model.n_markers])))
 		y_pred = tf.nn.softmax(output[:,0:model.n_markers])
 		loss_value = tf.math.reduce_sum(tf.math.square(tf.math.maximum(0., y_pred-tf.math.reduce_mean(y_pred,axis=0,keepdims=True)) * y_true)) * 1e-6
 		#if pure or full_loss:
@@ -764,7 +763,7 @@ def main():
 				y_pred = y_pred - tf.stop_gradient(tf.math.reduce_max(y_pred, axis=-1, keepdims=True))
 				y_pred_prob = tf.nn.softmax(y_pred)
 				gamma = 4
-				partialres = (tf.math.reduce_sum(      (y_pred-tf.math.log(tf.math.reduce_sum(tf.math.exp(y_pred), axis=-1, keepdims=True))) * y_true * (1 - tf.math.reduce_sum(y_pred_prob * y_true, axis=-1, keepdims=True)/tf.math.reduce_sum(y_true * y_true, axis=-1, keepdims=True))**gamma, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
+				partialres = (tf.math.reduce_sum(      (y_pred-tf.math.log(tf.math.reduce_sum(tf.math.exp(y_pred), axis=-1, keepdims=True))) * y_true * (1 - tf.math.reduce_sum(tf.stop_gradient(y_pred_prob) * y_true, axis=-1, keepdims=True)/tf.math.reduce_sum(y_true * y_true, axis=-1, keepdims=True))**gamma, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
 				##partialres = (tf.math.reduce_sum(      (y_pred-tf.math.log(tf.math.reduce_sum(tf.math.exp(y_pred), axis=-1, keepdims=True))) * y_true, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
 
 				return -tf.math.reduce_mean(tf.boolean_mask(partialres, ge.uniform(tf.shape(partialres)) < 0.9))
