@@ -402,7 +402,7 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 		output, encoded_data = model(input, targets, is_training=True)
 		y_true = tf.one_hot(tf.cast(targets * 2, tf.uint8), 3)
 		y_pred = tf.nn.softmax(output[:,0:model.n_markers])
-		loss_value = tf.math.reduce_sum(tf.math.square(tf.math.maximum(0., y_pred-tf.math.reduce_mean(y_pred,axis=0,keepdims=True)) * y_true)) * 1e-6
+		loss_value = tf.math.reduce_sum(tf.math.square((y_pred-tf.math.reduce_mean(y_pred,axis=0,keepdims=True)) * y_true)) * 1e-3
 		#if pure or full_loss:
 		#	loss_value = -loss_function(y_pred = output, y_true = targets, avg=True)
 			
