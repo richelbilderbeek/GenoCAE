@@ -260,7 +260,6 @@ class Autoencoder(Model):
 			#	reg_loss = reg_func(encoded_data)
 			reg_loss = self.regularizer["reg_factor"] * tf.reduce_sum(tf.math.maximum(0., tf.square(encoded_data_pure) - 1 * 40000.))
 			self.add_loss(reg_loss)
-			tf.print("REG", reg_loss)
 		if targets is not None:
 			reploss = tf.constant(0., tf.float32)
 			for i in range(1, tf.shape(encoded_data)[0] - 1):
@@ -283,7 +282,7 @@ class Autoencoder(Model):
 				#r2 *= 0.0001
 				##reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * (mismatch * tf.math.exp(-r2 * 0.2)) - 0.02 * tf.math.exp(-r2*0.5*0.2) - 0.02 * tf.math.exp(-r2*0.05*0.2))
 				#reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * tf.math.maximum(0., 0.5 - mismatch * -r2))
-				reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * tf.math.maximum(0., 0.5 * mismatch - r2))
+				reploss += tf.math.reduce_sum(self.regularizer["rep_factor"] * tf.math.maximum(0., 30. * mismatch - r2))
 				shiftedc = (shifted + shifted2)*0.5
 				##shiftedc = (tf.math.mod(shifted, 100.) + tf.math.mod(shifted2, 100.)) * 0.5
 				
@@ -370,7 +369,7 @@ class Autoencoder(Model):
 		return x
 
 @tf.function
-def run_optimization(model, optimizer, optimizer2, loss_function, input, targets, poplist, pure):
+def run_optimization(model, optimizer, optimizer2, loss_function, input, targets, pure):
 	'''
 	Run one step of optimization process based on the given data.
 
@@ -402,7 +401,7 @@ def run_optimization(model, optimizer, optimizer2, loss_function, input, targets
 		output, encoded_data = model(input, targets, is_training=True)
 		y_true = tf.one_hot(tf.cast(targets * 2, tf.uint8), 3)
 		y_pred = tf.nn.softmax(output[:,0:model.n_markers])
-		loss_value = tf.math.reduce_sum(tf.math.square((y_pred-tf.math.reduce_mean(y_pred,axis=0,keepdims=True)) * y_true)) * 1e-3
+		loss_value = tf.math.reduce_sum(((0*tf.math.reduce_mean(y_pred,axis=0,keepdims=True)-y_pred) * y_true)) * 1e-6
 		#if pure or full_loss:
 		#	loss_value = -loss_function(y_pred = output, y_true = targets, avg=True)
 			
@@ -766,7 +765,8 @@ def main():
 				partialres = (tf.math.reduce_sum(      (y_pred-tf.math.log(tf.math.reduce_sum(tf.math.exp(y_pred), axis=-1, keepdims=True))) * y_true * (1 - tf.math.reduce_sum(tf.stop_gradient(y_pred_prob) * y_true, axis=-1, keepdims=True)/tf.math.reduce_sum(y_true * y_true, axis=-1, keepdims=True))**gamma, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
 				##partialres = (tf.math.reduce_sum(      (y_pred-tf.math.log(tf.math.reduce_sum(tf.math.exp(y_pred), axis=-1, keepdims=True))) * y_true, axis = 0) * (1.0 - beta) / (1-tf.math.pow(beta, tf.math.reduce_sum(y_true2, axis=0)+1)+1e-9))
 
-				return -tf.math.reduce_mean(tf.boolean_mask(partialres, ge.uniform(tf.shape(partialres)) < 0.9))
+				##return -tf.math.reduce_mean(tf.boolean_mask(partialres, ge.uniform(tf.shape(partialres)) < 0.9))
+				return -tf.math.reduce_mean(partialres)
 				#return 0.5 * loss_obj(y_pred = y_pred, y_true = y_true) + 0.5 * loss_obj(y_pred = tf.math.reduce_mean(y_pred, axis = 0, keepdims = True), y_true = tf.math.reduce_mean(y_true, axis = 0, keepdims = True))
 
 
@@ -872,7 +872,7 @@ def main():
 
 			# This initializes the variables used by the optimizers,
 			# as well as any stateful metric variables
-			run_optimization(autoencoder, optimizer, optimizer2, loss_func, input_init, targets_init, poplist, True)
+			run_optimization(autoencoder, optimizer, optimizer2, loss_func, input_init, targets_init, True)
 			autoencoder.load_weights(weights_file_prefix)
 
 		print("\n______________________________ Train ______________________________")
@@ -925,7 +925,7 @@ def main():
 				
 				def step():
 					
-					train_batch_loss = run_optimization(autoencoder, optimizer, optimizer2, loss_func, batch_input, batch_target, poplist, False)
+					train_batch_loss = run_optimization(autoencoder, optimizer, optimizer2, loss_func, batch_input, batch_target, False)
 					train_losses.append(train_batch_loss)
 				#prevcoro2 = prevcoro
 				prevcoro = [asyncio.get_event_loop().run_in_executor(None, step)]
@@ -1145,10 +1145,10 @@ def main():
 				genotype_concordance_metric.update_state(y_pred = genotypes_output, y_true = true_genotypes)
 
 			elif (True or train_opts["loss"]["class"] in ["CategoricalCrossentropy", "KLDivergence"]) and data_opts["norm_mode"] == "genotypewise01":
-				tf.print("SHERPA", tf.shape(decoded_train))
+				tf.print(tf.shape(decoded_train))
 				genotypes_output = tf.cast(tf.argmax(alfreqvector(decoded_train[:, 0:n_markers]), axis = -1), tf.float16) * 0.5
 				true_genotypes = targets_train
-				tf.print("SHERPA2", genotypes_output[0:5], true_genotypes[0:5])
+				tf.print(genotypes_output[0:5], true_genotypes[0:5])
 				genotype_concordance_metric.update_state(y_pred = genotypes_output[orig_nonmissing_mask], y_true = true_genotypes[orig_nonmissing_mask])
 
 			else:
