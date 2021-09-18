@@ -448,7 +448,7 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 	with tf.GradientTape() as g2:
 		output, encoded_data = model(input, targets, is_training=True)
 		output2, encoded_data2 = model2(input, targets, is_training=True)
-		loss_value = tf.math.reduce_sum(tf.square(encoded_data-encoded_data2) + tf.square(400-tf.math.abs(encoded_data-tf.roll(encoded_data2, 1, axis=0))))*1e-6
+		loss_value = tf.math.reduce_sum(tf.reduce_sum(tf.square(encoded_data-encoded_data2),axis=-1) + tf.square(800-tf.reduce_sum(tf.math.abs(encoded_data-tf.roll(encoded_data2, 1, axis=0)), axis=-1)))*1e-6
 		#loss_value = loss_function(y_pred = output, y_true = targets) * (1.0 if pure or full_loss else 0.0)
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
