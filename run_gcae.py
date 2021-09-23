@@ -458,22 +458,22 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 	with tf.GradientTape() as g2:
 		output, encoded_data = model(input, targets, is_training=True)
 		output2, encoded_data2 = model2(input, targets, is_training=True)
-		loss_value = tf.math.reduce_sum( -tf.reduce_sum((encoded_data-tf.roll(encoded_data, 1, axis=0))
-		* (encoded_data2-tf.roll(encoded_data2, 1, axis=0)), axis=-1)
+		loss_value = tf.math.reduce_sum( -tf.reduce_sum((0*encoded_data-tf.roll(encoded_data, 1, axis=0))
+		* (0*encoded_data2-tf.roll(encoded_data2, 1, axis=0)), axis=-1)
 		/
-		tf.stop_gradient(tf.reduce_sum((encoded_data-tf.roll(encoded_data, 1, axis=0)) * (encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
-		(encoded_data2-tf.roll(encoded_data2, 1, axis=0)) * (encoded_data2-tf.roll(encoded_data2, 1, axis=0))+1e-4, axis=-1)))*1e-2
+		tf.stop_gradient(tf.reduce_sum((0*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (0*encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
+		(0*encoded_data2-tf.roll(encoded_data2, 1, axis=0)) * (0*encoded_data2-tf.roll(encoded_data2, 1, axis=0))+1e-4, axis=-1)))*1e-2
 	gradients2 = g2.gradient(loss_value, allvars)
 	other_loss = loss_value
 
 	with tf.GradientTape() as g3:
 		output, encoded_data = model(input, targets, is_training=True)
 		output2, encoded_data2 = model2(input, targets, is_training=True)
-		loss_value = tf.math.reduce_sum( tf.reduce_sum((encoded_data-tf.roll(encoded_data, 1, axis=0))
-		* (encoded_data2-tf.roll(encoded_data2, 2, axis=0)), axis=-1)
+		loss_value = tf.math.reduce_sum( tf.reduce_sum((0*encoded_data-tf.roll(encoded_data, 1, axis=0))
+		* (0*encoded_data2-tf.roll(encoded_data2, 2, axis=0)), axis=-1)
 		/
-		tf.stop_gradient(tf.reduce_sum((encoded_data-tf.roll(encoded_data, 1, axis=0)) * (encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
-		(encoded_data2-tf.roll(encoded_data2, 2, axis=0)) * (encoded_data2-tf.roll(encoded_data2, 2, axis=0))+1e-4, axis=-1)))*1e-2
+		tf.stop_gradient(tf.reduce_sum((0*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (0*encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
+		(0*encoded_data2-tf.roll(encoded_data2, 2, axis=0)) * (0*encoded_data2-tf.roll(encoded_data2, 2, axis=0))+1e-4, axis=-1)))*1e-2
 	##	output, encoded_data = model(input, targets, is_training=True)
 	##	#loss_value = loss_function(y_pred = output, y_true = targets) * (1.0 if pure or full_loss else 0.0)
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
