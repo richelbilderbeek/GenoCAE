@@ -458,7 +458,7 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 	with tf.GradientTape() as g2:
 		output, encoded_data = model(input, targets, is_training=True)
 		output2, encoded_data2 = model2(input, targets, is_training=True)
-		loss_value = tf.math.reduce_sum( -tf.math.log(tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0))
+		loss_value = tf.math.reduce_sum( -tf.math.log(0.5+0.5*tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0))
 		* (factor*encoded_data2-tf.roll(encoded_data2, 1, axis=0)), axis=-1)
 		/
 		tf.stop_gradient(tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
@@ -469,7 +469,7 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 	with tf.GradientTape() as g3:
 		output, encoded_data = model(input, targets, is_training=True)
 		output2, encoded_data2 = model2(input, targets, is_training=True)
-		loss_value = tf.math.reduce_sum( -tf.math.log(1.-tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0))
+		loss_value = tf.math.reduce_sum( -tf.math.log(1.-0.5*tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0))
 		* (factor*encoded_data2-tf.roll(encoded_data2, 2, axis=0)), axis=-1)
 		/
 		tf.stop_gradient(tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
