@@ -1,6 +1,4 @@
 #!/bin/bash
-#SBATCH --mail-type=ALL
-#SBATCH --mail-user fredrik@levingotland.se
 
 datadir=$1
 data=$2
@@ -13,7 +11,7 @@ test_id=${8}
 trainedmodeldir=${9}
 recombination=${10}
 
-jobname=ae.$3.$4.$5.$2
+jobname=ae.$3.$4.$5.$2.p1
 
 pip3 install docopt grpcio numpy scikit-learn matplotlib\>=3.2.1 seaborn scipy==1.4.1 pandas-plink==2.0.4 pandas==1.0.4 numba tensorflow.probability
 ## Recombination
@@ -22,8 +20,8 @@ pip3 install docopt grpcio numpy scikit-learn matplotlib\>=3.2.1 seaborn scipy==
 python3 -u run_gcae.py project \
 --datadir $datadir \
 --trainedmodelname $jobname \
---trainedmodeldir $trainedmodeldir \
---superpops example_tiny/HO_superpopulations
+--trainedmodeldir $trainedmodeldir 
+#--superpops example_tiny/HO_superpopulations
 #--recombination $recombination
 
 #--data $data \
@@ -36,8 +34,8 @@ python3 -u run_gcae.py evaluate \
 --metrics "hull_error,f1_score_3" \
 --datadir $datadir \
 --trainedmodelname $jobname \
---trainedmodeldir $trainedmodeldir \
---superpops example_tiny/HO_superpopulations
+--trainedmodeldir $trainedmodeldir #\
+#--superpops example_tiny/HO_superpopulations
 
 ## Code from applied bioinformatics:
 #cp run_gcae.py ${SLURM_JOB_NAME}.py

@@ -27,7 +27,7 @@ data_opts_id=d_0_4
 ##############################
 ## From the tiny example on Git
 epochs=40000
-save_interval=500
+save_interval=100
 recombination=1
 ## Original code
 #epochs=20000
@@ -130,7 +130,7 @@ then
 	project=snic2020-15-43
 	cores=4
 		time="1:59:00"
-		taskname=project.$model_id.$train_opts_id.$data_opts_id.$data.no
+		taskname=project.$model_id.$train_opts_id.$data_opts_id.$data
 		echo Launching $taskname
 		sbatch --gres=gpu:T4:1 -t $time -e ${logdir}${taskname}.error -o ${logdir}${taskname}.output -J $taskname project_ae_alvis.sh $datadir $data $model_id $train_opts_id $data_opts_id $epochs $save_interval $test_id $outdir
 fi
