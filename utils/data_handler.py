@@ -1,9 +1,11 @@
 import os
+import numba
 import numpy as np
 import h5py
 import utils.normalization as normalization
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+import sklearn.preprocessing
 import random
 from scipy.spatial import ConvexHull
 import functools
@@ -17,7 +19,17 @@ from sklearn.metrics import f1_score
 from scipy import stats
 from pandas_plink import read_plink
 
+@numba.jit(nopython=True, parallel=True)
+def helper_get_train_batch(sparsify, n_samples_batch, genotypes_train, genotypes_train_orig, mask_train, indices_this_batch, missing_val):
+	input_data_train = np.full((n_samples_batch, genotypes_train.shape[1], 2), 1.0, dtype=np.dtype('f4'))		
+	#genotypes_train = np.copy(self.genotypes_train_orig[self.sample_idx_train[indices_this_batch]])
+	#			
 
+	input_data_train[:,:,0] = genotypes_train
+	input_data_train[:,:,1] = mask_train
+
+	targets = genotypes_train_orig
+	return input_data_train, targets
 
 class data_generator_ae:
 	'''
@@ -90,7 +102,7 @@ class data_generator_ae:
 		:param mask: int array (n x m)
 		:param keep_fraction: probability to keep data
 		'''
-		mask = np.where(np.random.random_sample(mask.shape) > keep_fraction, 0, mask)
+		mask[np.random.random_sample(mask.shape) > keep_fraction] = 0
 
 	def _normalize(self):
 		'''
@@ -185,7 +197,7 @@ class data_generator_ae:
 		'''
 
 		# n_valid_samples x n_markers x 2
-		input_data_valid = np.full((len(self.sample_idx_valid),self.genotypes_train_orig.shape[1],2),1.0)
+		input_data_valid = np.full((len(self.sample_idx_valid),self.genotypes_train_orig.shape[1],2),1.0,dtype=np.dtype('f4'))
 
 		genotypes_valid = np.copy(self.genotypes_train_orig[self.sample_idx_valid])
 
@@ -242,7 +254,8 @@ class data_generator_ae:
 			self.train_batch_location = n_samples - (len(self.sample_idx_train)-self.train_batch_location)
 
 
-		return self.train_set_indices[idx]
+		return self.train_set_indices[idx]	
+
 
 	def get_train_batch(self, sparsify, n_samples_batch):
 		'''
@@ -259,34 +272,23 @@ class data_generator_ae:
 				 ind_pop_list_train_batch (n_samples x 2) : individual and population IDs of train batch samples
 
 		'''
-		input_data_train = np.full((n_samples_batch, self.genotypes_train_orig.shape[1], 2), 1.0, dtype=np.dtype('f4'))
-
 		indices_this_batch = self._get_indices_looped(n_samples_batch)
-		genotypes_train = np.copy(self.genotypes_train_orig[self.sample_idx_train[indices_this_batch]])
-
-		mask_train = np.full(input_data_train[:,:,0].shape, 1)
-
+		genotypes_train = self.genotypes_train_orig[self.sample_idx_train[indices_this_batch]]
+		genotypes_train_orig = genotypes_train
 		if not self.impute_missing:
 			# set the ones that are originally missing to 0 in mask (sinc we havent imputed them with RR)
-			mask_train[np.where(genotypes_train == self.missing_val)] = 0
+			mask_train = np.where(genotypes_train == self.missing_val)
+		else:
+			mask_train = np.full((n_samples_batch, genotypes_train.shape[1]), 1, dtype=np.bool_)
 
 		if sparsify > 0.0:
-
 			self._sparsify(mask_train, 1.0 - sparsify)
-
-			# indices of originally missing data + artifically sparsified data
-			missing_idx_train = np.where(mask_train == 0)
-
 			# fill genotypes with original valid genotypes and sparsify according to binary_mask_train
-			genotypes_train[missing_idx_train] = self.missing_val
+			genotypes_train = np.where(mask_train == 0, self.missing_val, genotypes_train)	
 
-		input_data_train[:,:,0] = genotypes_train
-		input_data_train[:,:,1] = mask_train
-
-		targets = self.genotypes_train_orig[self.sample_idx_train[indices_this_batch]]
+		(input_data_train, targets) = helper_get_train_batch(sparsify, n_samples_batch, genotypes_train, genotypes_train_orig, mask_train, indices_this_batch, self.missing_val)
 
 		return input_data_train, targets, self.ind_pop_list_train_orig[self.sample_idx_train[indices_this_batch]]
-
 
 	def get_train_set(self, sparsify):
 		'''
@@ -536,7 +538,7 @@ class GenotypeConcordance(keras.metrics.Metric):
 		self.accruary_metric = tf.keras.metrics.Accuracy()
 
 	def update_state(self, y_true, y_pred, sample_weight=None):
-		_ = self.accruary_metric.update_state(y_true=y_true, y_pred = y_pred)
+		_ = self.accruary_metric.update_state(y_true=y_true, y_pred =y_pred)#self.accruary_metric.update_state(y_true=y_true*2, y_pred = tf.one_hot(tf.cast(y_pred*2+1e-3, tf.int32), 3))
 		return y_pred
 
 	def result(self):
