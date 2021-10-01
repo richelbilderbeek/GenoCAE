@@ -138,7 +138,7 @@ class Autoencoder(Model):
 			print("No marker specific variable.")
 
 
-	def call(self, input_data, targets=None, is_training = True, verbose = False, rander=[False, False]):
+	def call(self, input_data, targets=None, is_training = True, verbose = False, rander=[False, False], regloss=True):
 		'''
 		The forward pass of the model. Given inputs, calculate the output of the model.
 
@@ -181,6 +181,7 @@ class Autoencoder(Model):
 
 		# indicator if were doing genetic clustering (ADMIXTURE-style) or not
 		have_encoded_raw = False
+		encoded_data = None
 
 		# do all layers except first
 		for layer_def in self.all_layers[1:]:
@@ -248,7 +249,7 @@ class Autoencoder(Model):
 			if verbose:
 				print("--- shape: {0}".format(x.shape))		
 
-		if self.regularizer:
+		if self.regularizer and regloss and encoded_data is not None:
 			reg_module = eval(self.regularizer["module"])
 			reg_name = getattr(reg_module, self.regularizer["class"])
 			reg_func = reg_name(float(self.regularizer["reg_factor"]))
@@ -259,6 +260,7 @@ class Autoencoder(Model):
 			#else:
 			#	reg_loss = reg_func(encoded_data)
 			reg_loss = self.regularizer["reg_factor"] * tf.reduce_sum(tf.math.maximum(0., tf.square(encoded_data_pure) - 1 * 40000.))
+			#reg_loss += self.regularizer["reg_factor"] * tf.reduce_sum(tf.math.maximum(0., tf.square(x) - 1 * 36.))
 			self.add_loss(reg_loss)
 		if targets is not None and False:
 			reploss = tf.constant(0., tf.float32)
