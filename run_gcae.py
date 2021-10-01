@@ -371,7 +371,7 @@ class Autoencoder(Model):
 		return x
 
 @tf.function
-def run_optimization(model, model2, optimizer, optimizer2, loss_function, input, targets, pure):
+def run_optimization(model, model2, optimizer, optimizer2, loss_function, input, targets, pure, phenomodel=None, phenotargets=None):
 	'''
 	Run one step of optimization process based on the given data.
 
@@ -386,8 +386,11 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 	#full_loss = val < 0.5
 	full_loss = True
 	with tf.GradientTape() as g:
-		output, encoded_data = model(input, targets, is_training=True)
-		output2, _ = model2(input, targets, is_training=True)
+		output, encoded_data = model(input, targets, is_training=True, regloss=False)
+		output2, _ = model2(input, targets, is_training=True, regloss=False)
+		if pure and phenomodel is not None:
+			z = phenomodel(encoded_data, is_training=True)
+			loss_value = tf.reduce_sum(z[0])
 		if pure or full_loss:
 			loss_value = loss_function(y_pred = output, y_true = targets) + loss_function(y_pred = output2, y_true = targets)
 			
@@ -396,7 +399,7 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "AD_066", tf.math.reduce_sum(tf.square(encoded_data), axis=-1), 0.))
 		#loss_value += 1e-3*tf.reduce_sum(tf.where(poplist[:, 0] == "Zapo0097", tf.square(encoded_data[:, 1]) + tf.square(tf.minimum(0.0, encoded_data[:, 0] - 1.0)), 0.))
 		
-	allvars = model.trainable_variables + model2.trainable_variables
+	allvars = model.trainable_variables + model2.trainable_variables + (phenomodel.trainable_variables if phenomodel is not None else [])
 	print("ALLVARS", allvars, "###")
 	gradients = g.gradient(loss_value, allvars)
 
@@ -404,10 +407,11 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 
 	with tf.GradientTape() as g5:
 		loss_value = tf.constant(0.)
-		for output, encoded_data in (model(input, targets, is_training=True), model2(input, targets, is_training=True)):
+		for output, encoded_data in (model(input, targets, is_training=True, regloss=False), model2(input, targets, is_training=True, regloss=False)):
 			y_true = tf.one_hot(tf.cast(targets * 2, tf.uint8), 3)
 			y_pred = tf.nn.softmax(output[:,0:model.n_markers])
-			loss_value += tf.math.reduce_sum(((0*tf.math.reduce_mean(y_pred,axis=0,keepdims=True)-y_pred) * y_true)) * 1e-6
+			#0*tf.math.reduce_mean(y_pred,axis=0,keepdims=True)
+			loss_value += tf.math.reduce_sum(((-y_pred) * y_true)) * 1e-6
 		#if pure or full_loss:
 		#	loss_value = -loss_function(y_pred = output, y_true = targets, avg=True)
 			
@@ -458,23 +462,23 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 	other_loss2 = loss_value
 	factor = 0.
 	with tf.GradientTape() as g2:
-		output, encoded_data = model(input, targets, is_training=True)
-		output2, encoded_data2 = model2(input, targets, is_training=True)
+		output, encoded_data = model(input, targets, is_training=True, regloss=False)
+		output2, encoded_data2 = model2(input, targets, is_training=True, regloss=False)
 		loss_value = tf.math.reduce_sum( -tf.math.log(0.5+0.5*tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0))
 		* (factor*encoded_data2-tf.roll(encoded_data2, 1, axis=0)), axis=-1)
 		/
-		tf.stop_gradient(tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
+		(tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
 		(factor*encoded_data2-tf.roll(encoded_data2, 1, axis=0)) * (factor*encoded_data2-tf.roll(encoded_data2, 1, axis=0))+1e-4, axis=-1))))*1e-2
 	gradients2 = g2.gradient(loss_value, allvars)
 	other_loss = loss_value
 
 	with tf.GradientTape() as g3:
-		output, encoded_data = model(input, targets, is_training=True)
-		output2, encoded_data2 = model2(input, targets, is_training=True)
+		output, encoded_data = model(input, targets, is_training=True, regloss=False)
+		output2, encoded_data2 = model2(input, targets, is_training=True, regloss=False)
 		loss_value = tf.math.reduce_sum( -tf.math.log(1.-0.5*tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0))
 		* (factor*encoded_data2-tf.roll(encoded_data2, 2, axis=0)), axis=-1)
 		/
-		tf.stop_gradient(tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
+		(tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
 		(factor*encoded_data2-tf.roll(encoded_data2, 2, axis=0)) * (factor*encoded_data2-tf.roll(encoded_data2, 2, axis=0))+1e-4, axis=-1))))*1e-2
 	##	output, encoded_data = model(input, targets, is_training=True)
 	##	#loss_value = loss_function(y_pred = output, y_true = targets) * (1.0 if pure or full_loss else 0.0)
@@ -484,6 +488,19 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 	##	loss_value = -tf.math.reduce_mean(tf.square(y_pred - tf.roll(y_pred, 1, axis = 0)) * 1e-3)
 	gradientsb = g3.gradient(loss_value, allvars)
 	other_loss3 = loss_value
+	
+	if phenomodel is not None:
+		with tf.GradientTape() as g6:
+			loss_value = tf.constant(0.)
+			for output, encoded_data in (model2(input, targets, is_training=True, regloss=False), model(input, targets, is_training=True, regloss=False)):
+				phenopred, _ = phenomodel(encoded_data, is_training=True)
+				tf.print("PRED")
+				tf.print(phenopred)
+				tf.print(phenotargets)
+				loss_value += tf.math.reduce_sum(tf.square(phenopred - phenotargets))
+
+		gradientspheno = g6.gradient(loss_value, allvars)
+		phenoloss = loss_value
 	
 	
 	loss_value = orig_loss
@@ -529,13 +546,17 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 	gradients4, alpha3 = combine(gradients2, gradientsb)
 	gradients3, alpha = combine(gradients3, gradients4)
 	gradients3, alpha2 = combine(gradients3, gradientsc)
+	if phenomodel is not None:
+		gradients3, phenoalpha = combine(gradients3, gradientspheno)
+	else:
+		phenoloss, phenoalpha = (0.,0.)
 	if pure or full_loss:
 		optimizer.apply_gradients(zip(gradients3, allvars))
 	#if pure or not full_loss:
 	#	# was optimizer2
 	#	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 	#tf.print(loss_value, other_loss4, other_loss3, other_loss2, other_loss, full_loss, alpha4, alpha3, alpha2, alpha)
-	tf.print(loss_value, other_loss4, other_loss3, other_loss2, other_loss, full_loss, alpha4, alpha3, alpha2, alpha)
+	tf.print(loss_value, other_loss4, other_loss3, other_loss2, other_loss, phenoloss, full_loss, alpha4, alpha3, alpha2, alpha, phenoalpha)
 	return loss_value
 
 
