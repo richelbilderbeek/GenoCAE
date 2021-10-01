@@ -129,12 +129,15 @@ def plot_coords_by_pop(pop_coords_dict, outfileprefix, savefig=True):
 			markers.extend([color_dict[pop][1] for i in range(len(this_fam_coords))])
 			edgecolors.extend([color_dict[pop][2] for i in range(len(this_fam_coords))])
 
-			plt.scatter(this_fam_coords[:,0],
-						this_fam_coords[:,1],
-						color=color_dict[pop][0],
-						marker=color_dict[pop][1],
+	sp_array = np.array(scatter_points)
+	order = np.arange(len(colors))
+	np.random.shuffle(order)
+	plt.scatter(sp_array[order,0],
+						sp_array[order,1],
+						color=colors[order],
+						marker=markers[order],
 						s=markersize,
-						edgecolors=color_dict[pop][2],
+						edgecolors=edgecolors[order],
 						label=pop,
 						linewidth = lw_scatter_points)
 
@@ -147,7 +150,23 @@ def plot_coords_by_pop(pop_coords_dict, outfileprefix, savefig=True):
 
 	return scatter_points, colors, markers, edgecolors
 
-
+# From discussion in https://github.com/matplotlib/matplotlib/issues/11155
+def mscatter(x,y,ax=None, m=None, **kw):
+    import matplotlib.markers as mmarkers
+    if not ax: ax=plt.gca()
+    sc = ax.scatter(x,y,**kw)
+    if (m is not None) and (len(m)==len(x)):
+        paths = []
+        for marker in m:
+            if isinstance(marker, mmarkers.MarkerStyle):
+                marker_obj = marker
+            else:
+                marker_obj = mmarkers.MarkerStyle(marker)
+            path = marker_obj.get_path().transformed(
+                        marker_obj.get_transform())
+            paths.append(path)
+        sc.set_paths(paths)
+    return sc
 
 def plot_coords_by_superpop(pop_coords_dict, outfileprefix, pop_superpop_file, savefig=True, plot_legend = True):
 
@@ -312,17 +331,22 @@ def plot_coords_by_superpop(pop_coords_dict, outfileprefix, pop_superpop_file, s
 					markers.extend([color_dict[pop][0] for i in range(len(this_fam_coords))])
 					edgecolors.extend([color_dict[pop][2] for i in range(len(this_fam_coords))])
 
-					plt.scatter(this_fam_coords[:,0],
-								this_fam_coords[:,1],
-								color=color_dict[pop][1],
-								marker=color_dict[pop][0],
-								s=markersize,
-								edgecolors=color_dict[pop][2],
-								label=pop,
-								linewidth = lw_scatter_points)
+
 			else:
 				# print("Population NOT in data: {0}".format(pop))
 				pass
+	
+	sp_array = np.array(scatter_points)
+	order = np.arange(len(colors))
+	np.random.shuffle(order)
+	mscatter(sp_array[order,0],
+						sp_array[order,1],
+						color=[colors[x] for x in order],
+						m=[markers[x] for x in order],
+						s=markersize,
+						edgecolors=[edgecolors[x] for x in order],
+						label=pop,
+						linewidth = lw_scatter_points)
 
 	plt.subplots_adjust(left = 0.07,
 						right = 0.999,
@@ -335,7 +359,6 @@ def plot_coords_by_superpop(pop_coords_dict, outfileprefix, pop_superpop_file, s
 	plt.close()
 
 	return scatter_points, colors, markers, edgecolors
-
 
 def plot_clusters_by_superpop(pop_coords_dict, outfileprefix, pop_superpop_file, savefig=True, write_legend = False):
 	'''
