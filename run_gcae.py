@@ -1,7 +1,7 @@
 """GenoCAE.
 
 Usage:
-  run_gcae.py train --datadir=<name> --data=<name> --model_id=<name> --train_opts_id=<name> --data_opts_id=<name> --save_interval=<num> --epochs=<num> [--resume_from=<num> --trainedmodeldir=<name> ]
+  run_gcae.py train --datadir=<name> --data=<name> --model_id=<name> --train_opts_id=<name> --data_opts_id=<name> --save_interval=<num> --epochs=<num> [--resume_from=<num> --trainedmodeldir=<name> ] [--pheno_model_id=<name>]
   run_gcae.py project --datadir=<name>   [ --data=<name> --model_id=<name>  --train_opts_id=<name> --data_opts_id=<name> --superpops=<name> --epoch=<num> --trainedmodeldir=<name>   --pdata=<name> --trainedmodelname=<name>]
   run_gcae.py plot --datadir=<name> [  --data=<name>  --model_id=<name> --train_opts_id=<name> --data_opts_id=<name>  --superpops=<name> --epoch=<num> --trainedmodeldir=<name>  --pdata=<name> --trainedmodelname=<name>]
   run_gcae.py animate --datadir=<name>   [ --data=<name>   --model_id=<name> --train_opts_id=<name> --data_opts_id=<name>  --superpops=<name> --epoch=<num> --trainedmodeldir=<name> --pdata=<name> --trainedmodelname=<name>]
@@ -50,6 +50,10 @@ import asyncio
 #mirrored_strategy = tf.distribute.MirroredStrategy()
 #tf.debugging.enable_check_numerics()
 ge = tf.random.Generator.from_seed(1)
+
+tf.config.experimental.enable_tensor_float_32_execution(
+    False
+)
 
 class Autoencoder(Model):
 
@@ -488,7 +492,7 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 	##	loss_value = -tf.math.reduce_mean(tf.square(y_pred - tf.roll(y_pred, 1, axis = 0)) * 1e-3)
 	gradientsb = g3.gradient(loss_value, allvars)
 	other_loss3 = loss_value
-	
+
 	if phenomodel is not None:
 		with tf.GradientTape() as g6:
 			loss_value = tf.constant(0.)
@@ -580,6 +584,17 @@ def alfreqvector(y_pred):
 	else:
 		return y_pred#tf.nn.softmax(y_pred)
 
+def generatepheno(data, poplist):
+	if data is None:
+		return None
+	return tf.expand_dims(tf.convert_to_tensor([data.get((fam, name), None) for name, fam in poplist]), axis=-1)
+
+def readpheno(file, num):
+	with open(file, "rt") as f:
+		for _ in f:
+			break
+		return {(line[0], line[1]) : float(line[num + 2]) for line in (full_line.split() for full_line in f)}
+
 def main():
 	asyncio.new_event_loop()
 	print("tensorflow version {0}".format(tf.__version__))
@@ -605,16 +620,20 @@ def main():
 		trainedmodelname = arguments["trainedmodelname"]
 		train_directory = trainedmodeldir + trainedmodelname
 
-		data_opts_id = trainedmodelname.split(".")[3]
-		train_opts_id = trainedmodelname.split(".")[2]
-		model_id = trainedmodelname.split(".")[1]
-		data = trainedmodelname.split(".")[4]
+		split = trainedmodelname.split(".")
 
+		data_opts_id = split[3]
+		train_opts_id = split[2]
+		model_id = split[1]
+		data = split[4]
+		pheno_model_id = (split + [None])[5]
 	else:
 		data = arguments['data']
 		data_opts_id = arguments["data_opts_id"]
 		train_opts_id = arguments["train_opts_id"]
 		model_id = arguments["model_id"]
+		pheno_model_id = arguments.get("pheno_model_id")
+
 		train_directory = False
 
 	with open("data_opts/" + data_opts_id+".json") as data_opts_def_file:
@@ -625,6 +644,12 @@ def main():
 
 	with open("models/" + model_id+".json") as model_def_file:
 		model_architecture = json.load(model_def_file)
+
+	if pheno_model_id is not None:
+		with open("models/" + pheno_model_id+".json") as model_def_file:
+			pheno_model_architecture = json.load(model_def_file)
+	else:
+		pheno_model_architecture = None
 
 	for layer_def in model_architecture["layers"]:
 		if "args" in layer_def.keys() and "name" in layer_def["args"].keys() and "encoded" in layer_def["args"]["name"] and "units" in layer_def["args"].keys():
@@ -682,7 +707,8 @@ def main():
 		n_input_channels = 2
 
 	if not train_directory:
-		train_directory = trainedmodeldir + "ae." + model_id + "." + train_opts_id + "." + data_opts_id  + "." + data
+		dirparts = [model_id, train_opts_id, data_opts_id, data] + ([pheno_model_id] if pheno_model_id is not None else [])
+		train_directory = trainedmodeldir + "ae." + ".".join(dirparts)
 
 	if arguments["pdata"]:
 		pdata = arguments["pdata"]
@@ -744,6 +770,10 @@ def main():
 							   normalization_mode = norm_mode,
 							   normalization_options = norm_opts,
 							   impute_missing = fill_missing)
+		if pheno_model_architecture is not None:
+			phenodata = readpheno(data_prefix + ".phe", 1)
+		else:
+			phenodata = None
 
 		n_markers = copy.deepcopy(dg.n_markers)
 
@@ -872,6 +902,7 @@ def main():
 
 		# get two samples to run through optimization to reload weights and optimizer variables
 		input_init, targets_init, poplist = dg.get_train_batch(0.0, 2)
+		phenotargets_init = generatepheno(phenodata, poplist)
 		dg.reset_batch_index()
 		if not missing_mask_input:
 			input_init = input_init[:,:,0, np.newaxis]
@@ -907,6 +938,10 @@ def main():
 
 		autoencoder = Autoencoder(model_architecture, n_markers, noise_std, regularizer)
 		autoencoder2 = Autoencoder(model_architecture, n_markers, noise_std, regularizer)
+		if pheno_model_architecture is not None:
+			pheno_model = Autoencoder(pheno_model_architecture, 2, noise_std, regularizer)
+		else:
+			pheno_model = None
 		optimizer = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
 		optimizer2 = tf.optimizers.Adam(learning_rate = lr_schedule, beta_1=0.99, beta_2 = 0.999)
 		#optimizer = tf.optimizers.SGD(learning_rate = lr_schedule, momentum=0.99)
@@ -914,7 +949,7 @@ def main():
 
 		# This initializes the variables used by the optimizers,
 		# as well as any stateful metric variables
-		run_optimization(autoencoder, autoencoder2, optimizer, optimizer2, loss_func, input_init, targets_init, True)
+		run_optimization(autoencoder, autoencoder2, optimizer, optimizer2, loss_func, input_init, targets_init, True, phenomodel=pheno_model, phenotargets=phenotargets_init)
 
 		if resume_from:
 			print("\n______________________________ Resuming training from epoch {0} ______________________________".format(resume_from))
@@ -957,6 +992,7 @@ def main():
 					batch_input, batch_target, poplist = dg.get_train_batch(sparsify_fraction, n_train_samples_last_batch)
 				else:
 					batch_input, batch_target, poplist = dg.get_train_batch(sparsify_fraction, batch_size)
+				phenotargets = generatepheno(phenodata, poplist)
 
 				if np.random.randint(0,5) == 0:
 						submask = batch_input[:,:,0] == -1
@@ -974,7 +1010,7 @@ def main():
 				
 				def step():
 					
-					train_batch_loss = run_optimization(autoencoder, autoencoder2, optimizer, optimizer2, loss_func, batch_input, batch_target, False)
+					train_batch_loss = run_optimization(autoencoder, autoencoder2, optimizer, optimizer2, loss_func, batch_input, batch_target, False, phenomodel=pheno_model, phenotargets=phenotargets)
 					train_losses.append(train_batch_loss)
 				#prevcoro2 = prevcoro
 				prevcoro = [asyncio.get_event_loop().run_in_executor(None, step)]
@@ -1194,7 +1230,7 @@ def main():
 				genotype_concordance_metric.update_state(y_pred = genotypes_output, y_true = true_genotypes)
 
 			elif (True or train_opts["loss"]["class"] in ["CategoricalCrossentropy", "KLDivergence"]) and data_opts["norm_mode"] == "genotypewise01":
-				tf.print(tf.shape(decoded_train))
+				tf.print(decoded_train[0:5])
 				genotypes_output = tf.cast(tf.argmax(alfreqvector(decoded_train[:, 0:n_markers]), axis = -1), tf.float16) * 0.5
 				true_genotypes = targets_train
 				tf.print(genotypes_output[0:5], true_genotypes[0:5])
