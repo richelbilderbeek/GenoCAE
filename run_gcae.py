@@ -595,6 +595,23 @@ def readpheno(file, num):
 			break
 		return {(line[0], line[1]) : float(line[num + 2]) for line in (full_line.split() for full_line in f)}
 
+def writephenos(file, poplist, phenos):
+	with open(file, "wt") as f:
+		for (name, fam), pheno in zip(poplist, phenos):
+			f.write(f'{fam} {name} {pheno}\n')
+                        
+
+def save_weights(train_directory, prefix, model):
+	if model is None:
+		return
+	
+	if os.path.isdir(prefix):
+		newname = train_directory+"_"+str(time.time())
+		os.rename(train_directory, newname)
+		print("... renamed " + train_directory + " to  " + newname)
+
+	model.save_weights(prefix, save_format ="tf")
+
 def main():
 	asyncio.new_event_loop()
 	print("tensorflow version {0}".format(tf.__version__))
@@ -1032,6 +1049,7 @@ def main():
 			print("Epoch: {}/{}...".format(effective_epoch, epochs+resume_from))
 			print("--- Train loss: {:.4f}  time: {}".format(np.average(train_losses), train_time))
 			weights_file_prefix = train_directory + "/weights/" + str(effective_epoch)
+			pheno_weights_file_prefix = train_directory + "/pheno_weights/" + str(effective_epoch)
 
 			if e % save_interval == 0:
 
@@ -1059,12 +1077,8 @@ def main():
 
 
 				startTime = datetime.now()
-				if os.path.isdir(weights_file_prefix):
-					newname = train_directory+"_"+str(time.time())
-					os.rename(train_directory, newname)
-					print("... renamed " + train_directory + " to  " + newname)
-
-				autoencoder.save_weights(weights_file_prefix, save_format ="tf")
+				save_weights(train_directory, weights_file_prefix, autoencoder)
+				save_weights(train_directory, pheno_weights_file_prefix, pheno_model)
 				save_time = (datetime.now() - startTime).total_seconds()
 				save_times.append(save_time)
 				save_epochs.append(effective_epoch)
@@ -1121,6 +1135,11 @@ def main():
 		genotype_concs_train = []
 
 		autoencoder = Autoencoder(model_architecture, n_markers, noise_std, regularizer)
+		if pheno_model_architecture is not None:
+			pheno_model = Autoencoder(pheno_model_architecture, 2, noise_std, regularizer)
+		else:
+			pheno_model = None
+
 		optimizer = tf.optimizers.Adam(learning_rate = learning_rate)
 		optimizer2 = tf.optimizers.Adam(learning_rate = learning_rate)
 
@@ -1144,6 +1163,9 @@ def main():
 			# as well as any stateful metric variables
 			# run_optimization(autoencoder, optimizer, loss_func, input, targets)
 			autoencoder.load_weights(weights_file_prefix)
+			if pheno_model is not None:
+				pheno_weights_file_prefix = "{0}/{1}/{2}".format(train_directory, "pheno_weights", epoch)
+				pheno_model.load_weights(pheno_weights_file_prefix)
 
 			if batch_size_project:
 				dg.reset_batch_index()
@@ -1156,6 +1178,7 @@ def main():
 				encoded_train = np.empty((0, n_latent_dim))
 				decoded_train = None
 				targets_train = np.empty((0, n_markers))
+				pheno_train = None
 
 				loss_value_per_train_batch = []
 				genotype_conc_per_train_batch = []
@@ -1171,6 +1194,15 @@ def main():
 						input_train_batch = input_train_batch[:,:,0, np.newaxis]
 
 					decoded_train_batch, encoded_train_batch = autoencoder(input_train_batch, is_training = False)
+					if pheno_model is not None:
+						add = pheno_model(encoded_train_batch)[0][:,0]
+						print(add)
+						print(np.shape(add))
+						if pheno_train is not None:
+							pheno_train = np.concatenate((pheno_train, add), axis=0)
+						else:
+							pheno_train = add
+						
 					loss_train_batch = loss_func(y_pred = decoded_train_batch, y_true = targets_train_batch)
 					#loss_train_batch += sum(autoencoder.losses)
 
@@ -1200,6 +1232,8 @@ def main():
 					input_train = input_train[:,:,0, np.newaxis]
 
 				decoded_train, encoded_train = autoencoder(input_train, is_training = False)
+				if pheno_model is not None:
+						pheno_train = pheno_model(encoded_train)[0]
 				loss_value = loss_func(y_pred = decoded_train, y_true = targets_train)
 				loss_value += sum(autoencoder.losses)
 
@@ -1268,7 +1302,8 @@ def main():
 				except:
 					plot_coords(encoded_train, "{0}/dimred_e_{1}".format(results_directory, epoch))
 
-
+			if pheno_train is not None:
+				 writephenos(f'{results_directory}/{epoch}.phe', ind_pop_list_train, pheno_train)
 			write_h5(encoded_data_file, "{0}_encoded_train".format(epoch), encoded_train)
 
 		try:
