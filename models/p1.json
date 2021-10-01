@@ -1,0 +1,15 @@
+ {"layers": [
+  {"class": "Dense", "module":"tf.keras.layers", "args": {"units":75}},
+  {"class": "LeakyReLU", "module":"tf.keras.layers", "args" : {}},
+  {"class": "Dropout", "module":"tf.keras.layers", "args": {"rate":0.01}},
+  {"class": "Dense", "module":"tf.keras.layers", "args": {"units":75}},
+  {"class": "LeakyReLU", "module":"tf.keras.layers", "args" : {}},
+  {"class": "Dense", "module":"tf.keras.layers", "args": {"units":75}},
+  {"class": "LeakyReLU", "module":"tf.keras.layers", "args" : {}},
+  {"class": "Dropout", "module":"tf.keras.layers", "args": {"rate":0.01}},
+  {"class": "Dense", "module":"tf.keras.layers", "args": {"units":75}},
+  {"class": "LeakyReLU", "module":"tf.keras.layers", "args" : {}},
+  {"class": "Dense", "module":"tf.keras.layers", "args": {"units":1}}
+]
+
+}

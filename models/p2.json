@@ -1,0 +1,7 @@
+ {"layers": [
+  {"class": "Dense", "module":"tf.keras.layers", "args": {"units":8}},
+  {"class": "LeakyReLU", "module":"tf.keras.layers", "args" : {}},
+  {"class": "Dense", "module":"tf.keras.layers", "args": {"units":1}}
+]
+
+}
