@@ -788,7 +788,7 @@ def main():
 							   normalization_options = norm_opts,
 							   impute_missing = fill_missing)
 		if pheno_model_architecture is not None:
-			phenodata = readpheno(data_prefix + ".phe", 1)
+			phenodata = readpheno(data_prefix + ".phe", 2)
 		else:
 			phenodata = None
 
