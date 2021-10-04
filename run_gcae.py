@@ -470,8 +470,8 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 		output2, encoded_data2 = model2(input, targets, is_training=True, regloss=False)
 		loss_value = tf.math.reduce_sum( -tf.math.log(0.5+0.5*tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0))
 		* (factor*encoded_data2-tf.roll(encoded_data2, 1, axis=0)), axis=-1)
-		/
-		(tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
+		* tf.math.rsqrt
+		(tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (factor*encoded_data-tf.roll(encoded_data, 1, axis=0)), axis=-1) * tf.reduce_sum(
 		(factor*encoded_data2-tf.roll(encoded_data2, 1, axis=0)) * (factor*encoded_data2-tf.roll(encoded_data2, 1, axis=0))+1e-4, axis=-1))))*1e-2
 	gradients2 = g2.gradient(loss_value, allvars)
 	other_loss = loss_value
@@ -481,8 +481,8 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 		output2, encoded_data2 = model2(input, targets, is_training=True, regloss=False)
 		loss_value = tf.math.reduce_sum( -tf.math.log(1.-0.5*tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0))
 		* (factor*encoded_data2-tf.roll(encoded_data2, 2, axis=0)), axis=-1)
-		/
-		(tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) + 
+		* tf.math.rsqrt
+		(tf.reduce_sum((factor*encoded_data-tf.roll(encoded_data, 1, axis=0)) * (factor*encoded_data-tf.roll(encoded_data, 1, axis=0)), axis=-1) * tf.reduce_sum( 
 		(factor*encoded_data2-tf.roll(encoded_data2, 2, axis=0)) * (factor*encoded_data2-tf.roll(encoded_data2, 2, axis=0))+1e-4, axis=-1))))*1e-2
 	##	output, encoded_data = model(input, targets, is_training=True)
 	##	#loss_value = loss_function(y_pred = output, y_true = targets) * (1.0 if pure or full_loss else 0.0)
@@ -501,7 +501,7 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 				tf.print("PRED")
 				tf.print(phenopred)
 				tf.print(phenotargets)
-				loss_value += tf.math.reduce_sum(tf.square(phenopred - phenotargets))
+				loss_value += tf.math.reduce_sum(tf.square(phenopred - phenotargets)) * 1e-2
 
 		gradientspheno = g6.gradient(loss_value, allvars)
 		phenoloss = loss_value
