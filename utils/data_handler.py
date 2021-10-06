@@ -18,6 +18,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import f1_score
 from scipy import stats
 from pandas_plink import read_plink
+import csv
 
 @numba.jit(nopython=True, parallel=True)
 def helper_get_train_batch(sparsify, n_samples_batch, genotypes_train, genotypes_train_orig, mask_train, indices_this_batch, missing_val):
@@ -72,6 +73,10 @@ class data_generator_ae:
 		'''
 		Replace missing values in genotypes with the most frequent value per SNP.
 
+		If two or more values occur the same number of times, take the smallest of them.
+		NOTE: this means that the way genotypes are represented (num ALT or num REF alles) can affect
+		which genotype gets imputed for those cases where HET occurs as many times as a HOM genotype.
+
 		:param genotypes: (n_markers x n_samples) numpy array of genotypes, missing values represented by 9.
 		'''
 
@@ -89,8 +94,9 @@ class data_generator_ae:
 		self.n_train_samples_orig = len(self.sample_idx_all)
 		self.n_train_samples = self.n_train_samples_orig
 		self.ind_pop_list_train_orig = ind_pop_list[self.sample_idx_all]
-		self.train_set_indices = np.array(range(self.n_train_samples))
+		self.train_set_indices = np.arange(self.n_train_samples)
 
+		self.n_valid_samples = 0
 
 	def _sparsify(self, mask, keep_fraction):
 		'''
@@ -180,7 +186,10 @@ class data_generator_ae:
 
 		_, _, self.sample_idx_train, self.sample_idx_valid = get_test_samples_stratified(self.genotypes_train_orig, self.ind_pop_list_train_orig, validation_split)
 
-		self.train_set_indices = np.array(range((len(self.sample_idx_train))))
+		self.sample_idx_train = np.array(self.sample_idx_train)
+		self.sample_idx_valid = np.array(self.sample_idx_valid)
+
+		self.train_set_indices = np.array(range(len(self.sample_idx_train)))
 		self.n_valid_samples = len(self.sample_idx_valid)
 		self.n_train_samples = len(self.sample_idx_train)
 
@@ -194,7 +203,13 @@ class data_generator_ae:
 				 target_data_valid (n_valid_samples x n_markers): original validation genotypes
 				 ind_pop_list valid (n_valid_samples x 2) : individual and population IDs of validation samples
 
+				 or
+				 empty arrays if no valid set defined
+
 		'''
+
+		if self.n_valid_samples == 0:
+			return np.array([]), np.array([]), np.array([])
 
 		# n_valid_samples x n_markers x 2
 		input_data_valid = np.full((len(self.sample_idx_valid),self.genotypes_train_orig.shape[1],2),1.0,dtype=np.dtype('f4'))
@@ -566,7 +581,7 @@ def write_h5(filename, dataname, data, replace_file = False):
 		with h5py.File(filename, 'a') as hf:
 			try:
 				hf.create_dataset(dataname,  data = data)
-			except RuntimeError:
+			except (RuntimeError, ValueError):
 				print("Replacing dataset {0} in {1}".format(dataname, filename))
 				del hf[dataname]
 				hf.create_dataset(dataname,  data = data)
@@ -783,6 +798,43 @@ def get_projected_epochs(encoded_data_file):
 
 	return epochs
 
+def write_metric_per_epoch_to_csv(filename, values, epochs):
+	'''
+	Write value of a metric per epoch to csv file, extending exisitng data if it exists.
+
+	Return the total data in the file, the given values and epochs appended to
+	any pre-existing data in the file.
+
+	Assumes format of file is epochs on first row, corresponding values on second row.
+
+	:param filename: full name and path of csv file
+	:param values: array of metric values
+	:param epochs: array of corresponding epochs
+	:return: array of epochs appended to any pre-existing epochs in filename
+			 and
+			 array of metric values appended to any pre-existing values in filename
+	'''
+	epochs_saved = np.array([])
+	values_saved = np.array([])
+
+	try:
+		with open(filename, mode='r') as res_file:
+			res_reader = csv.reader(res_file, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+			epochs_saved = next(res_reader)
+			values_saved = next(res_reader)
+	except:
+		pass
+
+	epochs_combined = np.concatenate((epochs_saved, epochs), axis=0)
+	values_combined = np.concatenate((values_saved, values), axis=0)
+
+	with open(filename, mode='w') as res_file:
+		res_writer = csv.writer(res_file, delimiter=',')
+		res_writer.writerow(epochs_combined)
+		res_writer.writerow(np.array(values_combined))
+
+	return  epochs_combined, values_combined
+
 
 def plot_genotype_hist(genotypes, filename):
 	'''
@@ -921,6 +973,8 @@ def get_test_samples_stratified(genotypes, ind_pop_list, test_split):
 def get_most_frequent(data):
 	'''
 	Get the most frequently occurring value in data along axis 0.
+	If two or more values occur the same number of times, take the smallest of them.
+
 	:param data: the data
 	:return:
 	'''

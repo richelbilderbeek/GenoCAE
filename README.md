@@ -1,8 +1,10 @@
 # GenoCAE
 
-Convolutional autoencoder for genotype data
+Convolutional autoencoder for genotype data, as described in [1]
 
 ## Installation
+
+### Manual Installation
 (examples for linux)
 
 #### Requirements:
@@ -16,16 +18,86 @@ pip3
 #### Install Python packages:
 
 
-    $ cd GCAE/
+    $ cd GenoCAE/
     $ pip3 install -r requirements.txt
 
+### Docker Installation
+
+#### Build Docker image
+
+``` Shell
+docker build -t gcae/genocae:build -f docker/build.dockerfile .
+```
+
+#### CLI
+
+```
+$ docker run -it --rm -v ${PWD}:/workspace gcae/genocae:build python3 run_gcae.py --help
+
+GenoCAE.
+
+Usage:
+  run_gcae.py train --datadir=<name> --data=<name> --model_id=<name> --train_opts_id=<name> --data_opts_id=<name> --save_interval=<num> --epochs=<num> [--resume_from=<num> --trainedmodeldir=<name> ]
+  run_gcae.py project --datadir=<name>   [ --data=<name> --model_id=<name>  --train_opts_id=<name> --data_opts_id=<name> --superpops=<name> --epoch=<num> --trainedmodeldir=<name>   --pdata=<name> --trainedmodelname=<name>]
+  run_gcae.py plot --datadir=<name> [  --data=<name>  --model_id=<name> --train_opts_id=<name> --data_opts_id=<name>  --superpops=<name> --epoch=<num> --trainedmodeldir=<name>  --pdata=<name> --trainedmodelname=<name>]
+  run_gcae.py animate --datadir=<name>   [ --data=<name>   --model_id=<name> --train_opts_id=<name> --data_opts_id=<name>  --superpops=<name> --epoch=<num> --trainedmodeldir=<name> --pdata=<name> --trainedmodelname=<name>]
+  run_gcae.py evaluate --datadir=<name> --metrics=<name>  [  --data=<name>  --model_id=<name> --train_opts_id=<name> --data_opts_id=<name>  --superpops=<name> --epoch=<num> --trainedmodeldir=<name>  --pdata=<name> --trainedmodelname=<name>]
+
+Options:
+  -h --help             show this screen
+  --datadir=<name>       directory where sample data is stored. if not absolute: assumed relative to GenoCAE/ directory.
+  --data=<name>         file prefix, not including path, of the data files (EIGENSTRAT of PLINK format)
+  --trainedmodeldir=<name>     base path where to save model training directories. if not absolute: assumed relative to GenoCAE/ directory. default: ae_out/
+  --model_id=<name>     model id, corresponding to a file models/model_id.json
+  --train_opts_id=<name>train options id, corresponding to a file train_opts/train_opts_id.json
+  --data_opts_id=<name> data options id, corresponding to a file data_opts/data_opts_id.json
+  --epochs<num>         number of epochs to train
+  --resume_from<num>    saved epoch to resume training from. set to -1 for latest saved epoch.
+  --save_interval<num>  epoch intervals at which to save state of model, and at which to calculate the valid loss
+  --trainedmodelname=<name> name of the model training directory to fetch saved model state from when project/plot/evaluating
+  --pdata=<name>        file prefix, not including path, of data to project/plot/evaluate. if not specified, assumed to be the same the model was trained on.
+  --epoch<num>          epoch at which to project/plot/evaluate data. if not specified, all saved epochs will be used
+  --superpops<name>     path+filename of file mapping populations to superpopulations. used to color populations of the same superpopulation in similar colors in plotting. if not absolute path: assumed relative to GenoCAE/ directory.
+  --metrics=<name>      the metric(s) to evaluate, e.g. hull_error of f1 score. can pass a list with multiple metrics, e.g. "hull_error,f1_score"
+```
+
+If you have a Docker with GPU support.
+```
+$ docker run -it  --gpus=all --rm -v ${PWD}:/workspace gcae/genocae:build python3 run_gcae.py --help
+
+GenoCAE.
+
+Usage:
+  run_gcae.py train --datadir=<name> --data=<name> --model_id=<name> --train_opts_id=<name> --data_opts_id=<name> --save_interval=<num> --epochs=<num> [--resume_from=<num> --trainedmodeldir=<name> ]
+  run_gcae.py project --datadir=<name>   [ --data=<name> --model_id=<name>  --train_opts_id=<name> --data_opts_id=<name> --superpops=<name> --epoch=<num> --trainedmodeldir=<name>   --pdata=<name> --trainedmodelname=<name>]
+  run_gcae.py plot --datadir=<name> [  --data=<name>  --model_id=<name> --train_opts_id=<name> --data_opts_id=<name>  --superpops=<name> --epoch=<num> --trainedmodeldir=<name>  --pdata=<name> --trainedmodelname=<name>]
+  run_gcae.py animate --datadir=<name>   [ --data=<name>   --model_id=<name> --train_opts_id=<name> --data_opts_id=<name>  --superpops=<name> --epoch=<num> --trainedmodeldir=<name> --pdata=<name> --trainedmodelname=<name>]
+  run_gcae.py evaluate --datadir=<name> --metrics=<name>  [  --data=<name>  --model_id=<name> --train_opts_id=<name> --data_opts_id=<name>  --superpops=<name> --epoch=<num> --trainedmodeldir=<name>  --pdata=<name> --trainedmodelname=<name>]
+
+Options:
+  -h --help             show this screen
+  --datadir=<name>       directory where sample data is stored. if not absolute: assumed relative to GenoCAE/ directory.
+  --data=<name>         file prefix, not including path, of the data files (EIGENSTRAT of PLINK format)
+  --trainedmodeldir=<name>     base path where to save model training directories. if not absolute: assumed relative to GenoCAE/ directory. default: ae_out/
+  --model_id=<name>     model id, corresponding to a file models/model_id.json
+  --train_opts_id=<name>train options id, corresponding to a file train_opts/train_opts_id.json
+  --data_opts_id=<name> data options id, corresponding to a file data_opts/data_opts_id.json
+  --epochs<num>         number of epochs to train
+  --resume_from<num>    saved epoch to resume training from. set to -1 for latest saved epoch.
+  --save_interval<num>  epoch intervals at which to save state of model, and at which to calculate the valid loss
+  --trainedmodelname=<name> name of the model training directory to fetch saved model state from when project/plot/evaluating
+  --pdata=<name>        file prefix, not including path, of data to project/plot/evaluate. if not specified, assumed to be the same the model was trained on.
+  --epoch<num>          epoch at which to project/plot/evaluate data. if not specified, all saved epochs will be used
+  --superpops<name>     path+filename of file mapping populations to superpopulations. used to color populations of the same superpopulation in similar colors in plotting. if not absolute path: assumed relative to GenoCAE/ directory.
+  --metrics=<name>      the metric(s) to evaluate, e.g. hull_error of f1 score. can pass a list with multiple metrics, e.g. "hull_error,f1_score"
+```
 
 ## CLI
 
 The training and evaluation of models is wrapped by a command-line interface (CLI)
 
 
-    $ cd GCAE/
+    $ cd GenoCAE/
     $ python3 run_gcae.py --help
 
     GenoCAE.
@@ -39,9 +111,9 @@ The training and evaluation of models is wrapped by a command-line interface (CL
 
     Options:
       -h --help             show this screen
-      --datadir=<name>      directory where sample data is stored
-      --data=<name>         file prefix of the data files (EIGENSTRAT of PLINK format)
-      --trainedmodeldir=<name>     base path where to save model training directories. default: ae_out/
+      --datadir=<name>      directory where sample data is stored. if not absolute: assumed relative to GenoCAE/ directory.
+      --data=<name>         file prefix of the data files (EIGENSTRAT or PLINK format)
+      --trainedmodeldir=<name>     base path where to save model training directories. if not absolute: assumed relative to GenoCAE/ directory. default: ae_out/
       --model_id=<name>     model id, corresponding to a file models/model_id.json
       --train_opts_id=<name>train options id, corresponding to a file train_opts/train_opts_id.json
       --data_opts_id=<name> data options id, corresponding to a file data_opts/data_opts_id.json
@@ -51,7 +123,7 @@ The training and evaluation of models is wrapped by a command-line interface (CL
       --trainedmodelname=<name> name of the model training directory to fetch saved model state from when project/plot/evaluating
       --pdata=<name>     	file prefix of data to project/plot/evaluate, if different than the data which the model was trained on
       --epoch<num>          epoch at which to project/plot/evaluate data. if not specified, all saved epochs will be used
-      --superpops<name>     path+filename of file mapping populations to superpopulations. used to color populations of the same superpopulation in similar colors in plotting.
+      --superpops<name>     path+filename of file mapping populations to superpopulations. used to color populations of the same superpopulation in similar colors in plotting. if not absolute path: assumed relative to GenoCAE/ directory.
       --metrics=<name>      the metric(s) to evaluate, e.g. hull_error of f1 score. can pass a list with multiple metrics, e.g. "hull_error,f1_score_3,f1_score_5"
 
 The main commands are:
@@ -92,13 +164,13 @@ A small example data set **HumanOrigins249_tiny** is in  [example_tiny/](example
 
 These options affect how data is input to the model. Passed to the CLI with option **--data_opts**, specifying a json file in the directory [data_opts/](data_opts/)
 
-Example: ([data_opts/b.json](data_opts/b_0_1.json))
+Example: ([data_opts/b_0_4.json](data_opts/b_0_4.json))
 
     { "norm_mode" : "genotypewise01",
       "norm_opts" : {"flip": false, "missing_val":-1.0},
       "impute_missing" : true,
       "validation_split" : 0.2,
-      "sparsifies" : [0.0, 0.1]
+      "sparsifies" : [0.0, 0.1, 0.2, 0.3, 0.4]
      }
 
 
@@ -178,7 +250,7 @@ Corresponds to the below architecture:
 
 * Giving a layer the name **"nms"** denotes where the marker-specific variable that is green in the figure should be concatenated
 
-
+* The variable **"ns"** is a list that contains the size of the length dimension of the data (the dimension that corresponds to the length of the genetic sequence). When a layer that modifies this (e.g. maxpooling) in the encoder is added, the new length is added to **ns**, so that it can be used to reconstruct the lengths in the decoder (e.g. when upsamling). The values in **ns** will thus depend on the length of the input data. For the data **HumanOrigins249_tiny** which is used in the [Examples](#examples) section below, **ns=\[9259,4630\]**. When a layer argument such as "units" or "target_shape" that should be an int is specified as a string, it will be evaluated as a python expression (and should therefore be a valid expression that evaluates to an int).
 
 ### train options
 These options affect the training of the model. Passed to the CLI with option **--train_opts**, specifying a json file in the directory [train_opts/](train_opts/)
@@ -261,7 +333,7 @@ Example with categorical cross-entropy loss and a learning rate scheme: ([train_
 
 optional:
 
-* **lr_scheme:** scheme to apply to learning rate. the example above is to use exponential decay, see [tf documentation](https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/train/exponential_decay).
+* **lr_scheme:** scheme to apply to learning rate. the example above is to use exponential decay, see [tf documentation](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/schedules/ExponentialDecay).
 
 
 > if the loss is sigmoid_cross_entropy_with_logits, the normalized genotypes should be in range (0,1) - so normalized using e.g. genotypewise01
@@ -276,7 +348,7 @@ optional:
 ### Training
 Command to train a model on the example data :
 
-    $ cd GCAE/
+    $ cd GenoCAE/
     $ python3 run_gcae.py train --datadir example_tiny/ --data HumanOrigins249_tiny --model_id M1  --epochs 20 --save_interval 2  --train_opts_id ex3  --data_opts_id b_0_4
 
 
@@ -287,14 +359,18 @@ This creates a model training directory: **ae_out/ae.M1.ex3.b_0_4.HumanOrigins24
 
 The following files are also created:
 * train_times.csv: time in seconds to train each epoch
-* save_times.csv: time in seconds to save each epoch to disk
+* losses_from_train_t.csv: loss function value on the training set per epoch
+* losses_from_train_v.csv: loss function value on the validation set per epoch
+
+
+You can [install tensorboard](https://pypi.org/project/tensorboard/) to use their suite of web tools for inspecting TensorFlow runs.
 
 
 Tensorboard can be started using:
 
     $ tensorboard --logdir ae_out/ae.M1.ex3.b_0_4.HumanOrigins249_tiny/
 
-on localhost:6006 in the browser
+it will be displayed on localhost:6006 in the browser
 
 
 ### Projecting
@@ -304,14 +380,14 @@ The saved model weights in a model training directory are used to reload the mod
 > The data set to project is specified using the **pdata** argument. If not specified, the same set as was used for training is assumed.
 
 
-    $ cd GCAE/
+    $ cd GenoCAE/
     $ python3 run_gcae.py project --datadir example_tiny/ --data HumanOrigins249_tiny --model_id M1 --train_opts_id ex3  --data_opts_id b_0_4 --superpops example_tiny/HO_superpopulations
 
 This creates a directory named after the projected data containing:
 
 1. a file **encoded_data.h5** containing the projected data (= the encoded data) for all samples at each epoch. this file is used by the plot, evaluate and animate commands.
 2. for each saved epoch: a plot of the projected samples colored according to population, and if specified, superpopulation. a legend is written to a separate file.
-3. a plot and csv file of the **loss function value** of the model per epoch
+3. a plot and csv file of the **loss function value** of the model per epoch. note that this is the loss for the entire data set.
 4. a plot and csv file of the **genotype concordance** of the model per epoch (this is the rate that the model output is equal to the model input). the black line shows the baseline genotype concordance, given by guessing the most frequently occurring genotype per marker.
 5. a plot **true_genotypes.pdf** showing a histogram of the true (input) genotypes that the model is trained on
 6. a plot **output_as_genotypes.pdf** showing a histogram of the model output interpreted as genotypes, for the last epoch
@@ -320,7 +396,7 @@ This creates a directory named after the projected data containing:
 > When projecting/plotting/evaluating: the location to look for a trained model can either be specified with the same options given to the train commamd (model_id, data_opts_id, etc.) OR by giving the entire directory name with the --trainedmodelname argument.
 > e.g.
 
-    $ cd GCAE/
+    $ cd GenoCAE/
     $ python3 run_gcae.py project --datadir example_tiny/  --trainedmodelname ae.M1.ex3.b_0_4.HumanOrigins249_tiny --superpops example_tiny/HO_superpopulations
 
 
@@ -328,7 +404,7 @@ This creates a directory named after the projected data containing:
 
 The encoded data per epoch that is stored in the file **encoded_data.h5** created by the project command is plotted (generating the same plots as the project command).
 
-    $ cd GCAE/
+    $ cd GenoCAE/
     $ python3 run_gcae.py plot --datadir example_tiny/ --trainedmodelname ae.M1.ex3.b_0_4.HumanOrigins249_tiny --superpops example_tiny/HO_superpopulations
 
 
@@ -336,7 +412,7 @@ The encoded data per epoch that is stored in the file **encoded_data.h5** create
 
 An animation visualizing the dimensionality reduction over the saved epochs **encoded_data.h5** is created.
 
-    $ cd GCAE/
+    $ cd GenoCAE/
     $ python3 run_gcae.py animate --datadir example_tiny/ --trainedmodelname ae.M1.ex3.b_0_4.HumanOrigins249_tiny --superpops example_tiny/HO_superpopulations
 
 
@@ -346,7 +422,7 @@ The encoded data per epoch that is stored in the file **encoded_data.h5** create
 are passed using the --metrics option. Currently implemented metrics are hull_error and f1_score_k, both of which are a measure of how well the encoding
 clusters populations.
 
-    $ cd GCAE/
+    $ cd GenoCAE/
     $ python3 run_gcae.py evaluate --metrics "hull_error,f1_score_3" --datadir example_tiny/ --trainedmodelname ae.M1.ex3.b_0_4.HumanOrigins249_tiny  --superpops example_tiny/HO_superpopulations
 
 
@@ -370,3 +446,13 @@ Dimensionality reduction:
 Legend:
 
 ![Legend](images/legend_HO_tiny.png)
+
+## Getting started
+
+See [tips](tips.md) for some rules of thumb for model architecture settings and hyperparameter tuning that might be a good place to start for using GCAE on your own data.
+
+
+## References
+
+ * [1] Ausmees, Kristiina and Nettelblad, Carl. "A deep learning framework for characterization of genotype data." bioRxiv (2020). [here](https://www.biorxiv.org/content/10.1101/2020.09.30.320994v1.abstract)
+
