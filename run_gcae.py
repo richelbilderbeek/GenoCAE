@@ -1040,12 +1040,12 @@ def main():
 
 				asyncio.get_event_loop().run_until_complete(asyncio.gather(*prevcoro))
 				
-				def step():
+				def step(bi, bt, pt):
 					
-					train_batch_loss = run_optimization(autoencoder, autoencoder2, optimizer, optimizer2, loss_func, batch_input, batch_target, False, phenomodel=pheno_model, phenotargets=phenotargets)
+					train_batch_loss = run_optimization(autoencoder, autoencoder2, optimizer, optimizer2, loss_func, bi, bt, False, phenomodel=pheno_model, phenotargets=pt)
 					train_losses.append(train_batch_loss)
 				#prevcoro2 = prevcoro
-				prevcoro = [asyncio.get_event_loop().run_in_executor(None, step)]
+				prevcoro = [asyncio.get_event_loop().run_in_executor(None, step, batch_input, batch_target, phenotargets)]
 			asyncio.get_event_loop().run_until_complete(asyncio.gather(*(prevcoro + prevcoro2)))
 
 			with train_writer.as_default():
