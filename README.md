@@ -372,6 +372,30 @@ Tensorboard can be started using:
 
 it will be displayed on localhost:6006 in the browser
 
+### Training with phenotype :construction:
+
+:construction: This is an experimental feature :construction:
+
+Similar to a regular training (see above), 
+one can also let GCAE train (and later: predict) phenotypes.
+
+To do so, add a phenotype model ID (`pheno-model-id`) to the same command as above:
+
+    $ cd GenoCAE/
+    $ python3 run_gcae.py train --datadir example_tiny/ --data HumanOrigins249_tiny --model_id M1  --epochs 20 --save_interval 2  --train_opts_id ex3  --data_opts_id b_0_4 --pheno_model_id=p1
+
+The phenotype (`.phe`) file is read from the same path
+as the other PLINK binary files (`.bed`/`.bim`/`.fam`)
+which are in the `datadir` folder (in this case: `example_tiny/`)
+The phenotype file must contain multiple phenotypes,
+it will use the second one. 
+
+The `pheno_model_id` (in this case `p1`) specificies a model architecture,
+similar to the (regular) `model_id`.
+These phenotype models resides in the `models/` folder,
+and are named `p1.json`, `p2.json`, etc.
+They start out from the output of the latent 
+layer "encoded" in the main model.
 
 ### Projecting
 
