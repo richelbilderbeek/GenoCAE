@@ -417,11 +417,11 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 
 	with tf.GradientTape() as g5:
 		loss_value = tf.constant(0.)
-		for output, encoded_data in (model(input, targets, is_training=True, regloss=False),) + ((model2(input, targets, is_training=True, regloss=False), ) if do_two else ()):
-			y_true = tf.one_hot(tf.cast(targets * 2, tf.uint8), 3)
-			y_pred = tf.nn.softmax(output[:,0:model.n_markers])
-			#0*tf.math.reduce_mean(y_pred,axis=0,keepdims=True)
-			loss_value += tf.math.reduce_sum(((-y_pred) * y_true)) * 1e-6
+		#for output, encoded_data in (model(input, targets, is_training=True, regloss=False),) + ((model2(input, targets, is_training=True, regloss=False), ) if do_two else ()): # Commented out, as suggested https://github.com/kausmees/GenoCAE/issues/19#issuecomment-982616548
+		#	y_true = tf.one_hot(tf.cast(targets * 2, tf.uint8), 3)        # Commented out, as suggested https://github.com/kausmees/GenoCAE/issues/19#issuecomment-982616548
+		#	y_pred = tf.nn.softmax(output[:,0:model.n_markers])           # Commented out, as suggested https://github.com/kausmees/GenoCAE/issues/19#issuecomment-982616548
+		#	#0*tf.math.reduce_mean(y_pred,axis=0,keepdims=True)           # Commented out, as suggested https://github.com/kausmees/GenoCAE/issues/19#issuecomment-982616548
+		#	loss_value += tf.math.reduce_sum(((-y_pred) * y_true)) * 1e-6 # Commented out, as suggested https://github.com/kausmees/GenoCAE/issues/19#issuecomment-982616548
 		#if pure or full_loss:
 		#	loss_value = -loss_function(y_pred = output, y_true = targets, avg=True)
 			
