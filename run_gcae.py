@@ -685,7 +685,8 @@ def main():
 		train_opts_id = split[2]
 		model_id = split[1]
 		data = split[4]
-		pheno_model_id = (split + [None])[5]
+		# pheno_model_id = (split + [None])[5]
+		pheno_model_id = arguments.get("pheno_model_id") # RJCB: needed for the correct 'ae_' foldername in all steps
 	else:
 		data = arguments['data']
 		data_opts_id = arguments["data_opts_id"]
