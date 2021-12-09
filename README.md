@@ -480,3 +480,4 @@ See [tips](tips.md) for some rules of thumb for model architecture settings and 
 
  * [1] Ausmees, Kristiina and Nettelblad, Carl. "A deep learning framework for characterization of genotype data." bioRxiv (2020). [here](https://www.biorxiv.org/content/10.1101/2020.09.30.320994v1.abstract)
 
+
