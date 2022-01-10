@@ -1,5 +1,5 @@
-{"layers":
-[
+ {"layers": [
   {"class": "Dense", "module":"tf.keras.layers", "args": {"units":1}}
 ]
+
 }
