@@ -702,7 +702,7 @@ def main():
 		train_opts = json.load(train_opts_def_file)
 
 	with open("{}/models/{}.json".format(GCAE_DIR, model_id)) as model_def_file:
-		assert os.path.exists(model_def_file)
+		assert os.path.exists("{}/models/{}.json".format(GCAE_DIR, model_id))
 		model_architecture = json.load(model_def_file)
 
 	if pheno_model_id is not None:
