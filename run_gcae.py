@@ -52,9 +52,9 @@ from pathlib import Path
 #tf.debugging.enable_check_numerics()
 ge = tf.random.Generator.from_seed(1)
 
-tf.config.experimental.enable_tensor_float_32_execution(
-    False
-)
+#tf.config.experimental.enable_tensor_float_32_execution(
+#    False
+#)
 
 
 GCAE_DIR = Path(__file__).resolve().parent
