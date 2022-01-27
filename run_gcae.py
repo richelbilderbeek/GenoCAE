@@ -620,6 +620,8 @@ def generatepheno(data, poplist):
 		return None
 	return tf.expand_dims(tf.convert_to_tensor([data.get((fam, name), None) for name, fam in poplist]), axis=-1)
 
+# @param file name of the phenotype file
+# @param num index of the phenotype, use zero for the first phenotype
 def readpheno(file, num):
 	with open(file, "rt") as f:
 		for _ in f:
@@ -834,7 +836,7 @@ def main():
 							   normalization_options = norm_opts,
 							   impute_missing = fill_missing)
 		if pheno_model_architecture is not None:
-			phenodata = readpheno(data_prefix + ".phe", 1) # Use the first phenotype, human counting
+			phenodata = readpheno(data_prefix + ".phe", 0) # Use the first phenotype
 		else:
 			phenodata = None
 
