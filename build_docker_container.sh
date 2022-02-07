@@ -11,14 +11,8 @@
 #
 sudo docker build -t gcae/genocae:build -f docker/build.dockerfile .
 
-exit 42
-
-spython recipe docker/build.dockerfile &> Singularity
-
-sudo -E singularity build gcae.sif Singularity
-
 if [[ $HOSTNAME == "N141CU" ]]; then
-  notify-send "Done creating 'gcae.sif'" "Done creating 'gcae.sif'"
+  notify-send "Done creating Dockerfile" "Done creating Dockerfile"
 fi
 
 
