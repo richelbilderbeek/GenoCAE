@@ -9,7 +9,7 @@
 # ./build_docker_container.sh
 #
 #
-sudo docker build  - < docker/build.dockerfile
+sudo docker build -t gcae/genocae:build -f docker/build.dockerfile .
 
 exit 42
 
