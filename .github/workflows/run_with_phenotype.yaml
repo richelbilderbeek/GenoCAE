@@ -1,5 +1,4 @@
-# For help debugging build failures open an issue on the RStudio community with the 'github-actions' tag.
-# https://community.rstudio.com/new-topic?category=Package%20development&tags=github-actions
+# Determine if GCAE can do the full workflow with a phenotype
 on:
   push:
   pull_request:
@@ -43,5 +42,4 @@ jobs:
 
 #      - name: Animate
 #        run: python3 run_gcae.py animate --datadir example_tiny/ --trainedmodelname ae.M1.ex3.b_0_4.HumanOrigins249_tiny --superpops example_tiny/HO_superpopulations
-
 
