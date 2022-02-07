@@ -23,9 +23,6 @@ RUN wget \
 
 RUN pip3 install --upgrade pip
 
-# Lapack
-RUN apt-get install -y liblapack-dev python3-numpy
-
 WORKDIR /workspace
 ADD ./requirements.txt /workspace
 RUN pip3 install -r /workspace/requirements.txt and &&\
