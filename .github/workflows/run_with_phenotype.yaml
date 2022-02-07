@@ -3,10 +3,10 @@ on:
   push:
   pull_request:
 
-name: check
+name: run_with_phenotype
 
 jobs:
-  check:
+  run_with_phenotype:
 
     runs-on: ubuntu-latest
     env:

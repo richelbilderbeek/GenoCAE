@@ -4,10 +4,10 @@ on:
   push:
   pull_request:
 
-name: check
+name: build_containers
 
 jobs:
-  check:
+  build_containers:
 
     runs-on: ubuntu-latest
     env:
