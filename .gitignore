@@ -1,2 +1,5 @@
 ae_out/
 utils/__pycache__/
+Dockerfile
+*.tar.gz
+docker_container/
