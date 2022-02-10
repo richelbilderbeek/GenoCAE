@@ -8,7 +8,7 @@
 #
 #
 
-sudo docker container create -t gcae/genocae:build -f docker/build.dockerfile gcae --name gcae .
+sudo docker build -t gcae/genocae:build -f docker/build.dockerfile .
 
 if [[ $HOSTNAME == "N141CU" ]]; then
   notify-send "Done creating Dockerfile" "Done creating Dockerfile"
