@@ -47,6 +47,15 @@ sed -i 's/ubuntu11.1.1/ubuntu20.04/g' Singularity
 #
 sed -i 's/^SHELL.*$//g' Singularity
 
+
+# Remove this line,
+#
+# cd /workspace
+#
+# by deleting it
+#
+sed -i 's/^cd .workspace$//g' Singularity
+
 sudo -E singularity build gcae.sif Singularity
 
 if [[ $HOSTNAME == "N141CU" ]]; then
