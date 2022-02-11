@@ -36,7 +36,6 @@ spython recipe docker/build.dockerfile &> Singularity
 #
 sed -i 's/ubuntu11.1.1/ubuntu20.04/g' Singularity
 
-
 sudo -E singularity build gcae.sif Singularity
 
 if [[ $HOSTNAME == "N141CU" ]]; then
