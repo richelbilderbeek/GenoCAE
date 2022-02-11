@@ -24,9 +24,9 @@ jobs:
       - name: View the Docker images
         run: sudo docker image ls
 
-      - name: Build the Docker container
-        run: ./build_docker_container.sh
-
-      - name: View the Docker file
-        run: ls
+#      - name: Build the Docker container
+#        run: ./build_docker_container.sh
+#
+#      - name: View the Docker container
+#        run: ls
 
