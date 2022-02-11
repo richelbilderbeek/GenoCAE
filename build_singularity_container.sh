@@ -56,6 +56,21 @@ sed -i 's/^SHELL.*$//g' Singularity
 #
 sed -i 's/^cd .workspace$//g' Singularity
 
+# The section '%files' becomes:
+#
+# ./requirements.txt /workspace
+#
+# Must become:
+#
+# requirements.txt /workspace/requirements.txt
+# # requirements.txt /requirements.txt
+# # ./requirements.txt /requirements.txt
+# # ./requirements.txt ./requirements.txt
+#
+# Use | as seperator
+#
+sed -i 's|^..requirements.txt .workspace$|requirements.txt /workspace/requirements.txt|g' Singularity
+
 sudo -E singularity build gcae.sif Singularity
 
 if [[ $HOSTNAME == "N141CU" ]]; then
