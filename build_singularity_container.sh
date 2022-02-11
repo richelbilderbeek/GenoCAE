@@ -32,9 +32,20 @@ spython recipe docker/build.dockerfile &> Singularity
 # This is a bug where spython replaces variables incorrectly. 
 # Correct is:
 #
-# From: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
+# From: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04	
+#
+# The bug is reported at 
+# https://github.com/singularityhub/singularity-cli/issues/187
 #
 sed -i 's/ubuntu11.1.1/ubuntu20.04/g' Singularity
+
+# Remove this line,
+#
+# SHELL ["/bin/bash", "-c"]
+#
+# by deleting it
+#
+sed -i 's/^SHELL.*$//g' Singularity
 
 sudo -E singularity build gcae.sif Singularity
 

@@ -4,3 +4,4 @@ Dockerfile
 *.tar.gz
 docker_container/
 gcae_docker_container.tar.gz
+Singularity

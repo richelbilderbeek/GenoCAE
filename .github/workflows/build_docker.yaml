@@ -1,13 +1,11 @@
-# For help debugging build failures open an issue on the RStudio community with the 'github-actions' tag.
-# https://community.rstudio.com/new-topic?category=Package%20development&tags=github-actions
 on:
   push:
   pull_request:
 
-name: build_containers
+name: build_docker
 
 jobs:
-  build_containers:
+  build_docker:
 
     runs-on: ubuntu-latest
     env:
@@ -31,7 +29,4 @@ jobs:
 
       - name: View the Docker file
         run: ls
-
-      - name: Build the Singularity container
-        run: ./build_singularity_container.sh
 

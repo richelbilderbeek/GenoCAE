@@ -1,0 +1,23 @@
+on:
+  push:
+  pull_request:
+
+name: build_singularity
+
+jobs:
+  build_singularity:
+
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: r-lib/actions/setup-r@v1
+
+      - name: Install libcurl4-openssl-dev
+        run: sudo apt install -qq libcurl4-openssl-dev
+
+      - name: Build the Singularity container
+        run: ./build_singularity_container.sh
+
