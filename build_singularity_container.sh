@@ -25,6 +25,18 @@
 
 spython recipe docker/build.dockerfile &> Singularity
 
+# The Singularity container will have this line:
+#
+# From: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu11.1.1
+#
+# This is a bug where spython replaces variables incorrectly. 
+# Correct is:
+#
+# From: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
+#
+sed -i 's/ubuntu11.1.1/ubuntu20.04/g' Singularity
+
+
 sudo -E singularity build gcae.sif Singularity
 
 if [[ $HOSTNAME == "N141CU" ]]; then
