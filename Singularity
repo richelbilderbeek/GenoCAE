@@ -4,14 +4,13 @@ Stage: spython-base
 
 %files
 requirements.txt /workspace/requirements.txt
+
 %labels
-maintainer="Dong Wang"
+maintainer="Richel Bilderbeek"
+
 %post
 CUDA_VERSION=11.1.1
 OS_VERSION=20.04
-
-
-
 
 PATH="/root/miniconda3/bin:${PATH}"
 PATH="/root/miniconda3/bin:${PATH}"
@@ -19,22 +18,22 @@ DEBIAN_FRONTEND=noninteractive
 
 
 
-apt-get update && apt-get upgrade -y &&\
+apt-get update && apt-get upgrade -y && \
 apt-get install -y wget python3-pip
 
 python3 -m pip install --upgrade pip
 
-
-python3 -m pip install -r /workspace/requirements.txt and &&\
+python3 -m pip install -r /workspace/requirements.txt && \
 rm /workspace/requirements.txt
 
 python3 -m pip list
 
 %environment
 export PATH="/root/miniconda3/bin:${PATH}"
+
+
 %runscript
+exec python3 "$@"
 
-exec /bin/bash /bin/bash "$@"
 %startscript
-
-exec /bin/bash /bin/bash "$@"
+exec python3 "$@"
