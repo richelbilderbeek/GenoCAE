@@ -4,7 +4,7 @@ Stage: spython-base
 
 %files
 requirements.txt /workspace/requirements.txt
-run_gcae.txt /workspace/run_gcae.txt
+run_gcae.py /workspace/run_gcae.py
 
 %labels
 maintainer="Richel Bilderbeek"
