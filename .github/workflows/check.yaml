@@ -1,0 +1,32 @@
+# Determine if GCAE can do a minimal run
+on:
+  push:
+  pull_request:
+
+name: check
+
+jobs:
+  check:
+
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: r-lib/actions/setup-r@v1
+
+      - name: Install libcurl4-openssl-dev
+        run: sudo apt install -qq libcurl4-openssl-dev
+
+      - name: Install python3-pip, thanks Pavlin Mitev
+        run: |
+          sudo apt install -qq python3-pip
+          python3 -m pip install --upgrade pip
+
+      - name: Install dependencies using python3, thanks Pavlin Mitev
+        run: python3 -m pip install -r requirements.txt
+
+      - name: Show help
+        run: python3 run_gcae.py --help
+
