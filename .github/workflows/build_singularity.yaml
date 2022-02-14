@@ -28,6 +28,9 @@ jobs:
           sudo rm -rf "/usr/local/share/boost" \
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
+      - name: How much disk space we have? We need 6 GB
+        run: df -h
+
       - name: Build the Singularity container
         run: ./build_singularity_container.sh
 
