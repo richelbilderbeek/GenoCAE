@@ -15,7 +15,9 @@ SHELL ["/bin/bash", "-c"]
 RUN apt-get update && apt-get upgrade -y &&\
 apt-get install -y wget python3-pip
 
-RUN python3 -m pip install --upgrade pip
+# Tip from Pavlin Mitev
+RUN python3 -m pip install --no-cache-dir --upgrade pip
+# RUN python3 -m pip install --upgrade pip
 
 WORKDIR /workspace
 ADD ./requirements.txt /workspace

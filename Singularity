@@ -32,7 +32,9 @@ Stage: spython-base
     apt-get update && apt-get upgrade -y && \
     apt-get install -y wget python3-pip
 
-    python3 -m pip install --upgrade pip
+    # python3 -m pip install --upgrade pip
+    # Tip from Pavlin Mitev
+    python3 -m pip install --no-cache-dir --upgrade pip
 
     python3 -m pip install -r /opt/gcae/requirements.txt
 
