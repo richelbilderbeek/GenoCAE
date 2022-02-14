@@ -92,6 +92,26 @@ Options:
   --metrics=<name>      the metric(s) to evaluate, e.g. hull_error of f1 score. can pass a list with multiple metrics, e.g. "hull_error,f1_score"
 ```
 
+### Singularity Installation
+
+Obtain the Singularity:
+
+```
+singularity pull --arch amd64 library://richelbilderbeek/default/gcae:0.1
+```
+
+Run GenoCAE using:
+
+```
+singularity run gcae.sif [GenoCAE arguments]
+```
+
+For example:
+
+```
+singularity run gcae.sif --help
+```
+
 ## CLI
 
 The training and evaluation of models is wrapped by a command-line interface (CLI)
