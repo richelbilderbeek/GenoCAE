@@ -27,5 +27,5 @@ jobs:
         run: ./build_singularity_container.sh
 
       - name: Run the Singularity container
-        run: ./gcae.sif run_gcae.py --help
+        run: singularity run gcae.sif run_gcae.py --help
 
