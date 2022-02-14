@@ -5,6 +5,7 @@ Stage: spython-base
 %files
 requirements.txt /workspace/requirements.txt
 run_gcae.py /workspace/run_gcae.py
+utils/ /workspace/utils/
 
 %labels
 maintainer="Richel Bilderbeek"
@@ -29,6 +30,12 @@ python3 /workspace/run_gcae.py --help
 
 %environment
 export PATH="/root/miniconda3/bin:${PATH}"
+
+%test
+    echo "*******************************"
+    echo "Testing GCAE"
+    echo "*******************************"
+    python3 /workspace/run_gcae.py --help
 
 %runscript
 exec python3 "$@"
