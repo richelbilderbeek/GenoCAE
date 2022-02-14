@@ -1,0 +1,55 @@
+on:
+  push:
+  pull_request:
+
+name: build_singularity
+
+jobs:
+  build_singularity:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        singularity_version:
+          - '3.7.4'
+    container:
+      image: quay.io/singularity/singularity:v${{ matrix.singularity_version }}
+      options: --privileged
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Obtain the Singularity container
+        run: singularity pull --arch amd64 library://richelbilderbeek/default/gcae:0.1
+
+      - name: See all
+        run: ls
+
+      - name: See
+        run: ls *.sif
+
+      - name: Run the Singularity container
+        run: singularity run gcae.sif --help
+
+      - name: Train models with phenotype
+        run: singularity run train --datadir example_tiny --data issue_6_bin --model_id M0  --epochs 3 --save_interval 1  --train_opts_id ex3  --data_opts_id b_0_4 --pheno_model_id=p1
+
+      - name: Project, without 'HO_superpopulations' file, Issue #23
+        run: singularity run project --datadir example_tiny --data issue_6_bin --model_id M0 --train_opts_id ex3 --data_opts_id b_0_4 --pheno_model_id=p1
+
+      - name: Evaluate, without hull error
+        run: singularity run evaluate --metrics "f1_score_3" --datadir example_tiny/ --trainedmodelname ae.M0.ex3.b_0_4.issue_6_bin.p1 --superpops example_tiny/HO_superpopulations
+
+      - name: Evaluate, with hull error
+        run: singularity run evaluate --metrics "hull_error,f1_score_3" --datadir example_tiny/ --trainedmodelname ae.M0.ex3.b_0_4.issue_6_bin.p1 --superpops example_tiny/HO_superpopulations
+
+#      - name: Project, with 'HO_superpopulations' file, Issue #22
+#        run: singularity run project --datadir example_tiny --data issue_6_bin --model_id M0 --train_opts_id ex3 --data_opts_id b_0_4 --superpops example_tiny/HO_superpopulations --pheno_model_id=p1
+
+#      - name: Animate
+#        run: singularity run animate --datadir example_tiny/ --trainedmodelname ae.M0.ex3.b_0_4.HumanOrigins249_tiny --superpops example_tiny/HO_superpopulations
+
