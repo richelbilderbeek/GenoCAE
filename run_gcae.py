@@ -509,9 +509,9 @@ def run_optimization(model, model2, optimizer, optimizer2, loss_function, input,
 			loss_value = tf.constant(0.)
 			for output, encoded_data in (model(input, targets, is_training=True, regloss=False),) + ((model2(input, targets, is_training=True, regloss=False), ) if do_two else ()):
 				phenopred, _ = phenomodel(encoded_data, is_training=True)
-				tf.print("PRED")
-				tf.print(phenopred)
-				tf.print(phenotargets)
+				#tf.print("PRED") # RJCB
+				#tf.print(phenopred) # RJCB
+				#tf.print(phenotargets) # RJCB
 				loss_value += tf.math.reduce_sum(tf.square(phenopred - phenotargets)) * 1e-2
 
 		gradientspheno = g6.gradient(loss_value, allvars)
