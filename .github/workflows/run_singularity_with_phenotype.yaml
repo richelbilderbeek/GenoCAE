@@ -2,10 +2,10 @@ on:
   push:
   pull_request:
 
-name: build_singularity
+name: run_singularity_with_phenotype
 
 jobs:
-  build_singularity:
+  run_singularity_with_phenotype:
 
     runs-on: ubuntu-latest
 
@@ -26,11 +26,8 @@ jobs:
       - name: Obtain the Singularity container
         run: singularity pull --arch amd64 library://richelbilderbeek/default/gcae:0.1
 
-      - name: See all
-        run: ls
-
-      - name: See
-        run: ls *.sif
+      - name: Rename
+        run: mv $(ls *.sif) gcae.sif
 
       - name: Run the Singularity container
         run: singularity run gcae.sif --help
