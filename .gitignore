@@ -5,3 +5,4 @@ Dockerfile
 docker_container/
 gcae_docker_container.tar.gz
 gcae.sif
+*.sif
