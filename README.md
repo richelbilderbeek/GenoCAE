@@ -97,7 +97,7 @@ Options:
 Obtain the Singularity:
 
 ```
-singularity pull --arch amd64 library://richelbilderbeek/default/gcae:0.1
+singularity pull --arch amd64 library://richelbilderbeek/default/gcae:0.3
 ```
 
 Run GenoCAE using:

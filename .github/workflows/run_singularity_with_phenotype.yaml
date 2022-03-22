@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Obtain the Singularity container
-        run: singularity pull --arch amd64 library://richelbilderbeek/default/gcae:0.2
+        run: singularity pull --arch amd64 library://richelbilderbeek/default/gcae:0.3
 
       - name: Rename from any version to same standard name
         run: mv $(ls *.sif) gcae.sif
