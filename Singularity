@@ -50,7 +50,7 @@ Stage: spython-base
     DEBIAN_FRONTEND=noninteractive
 
     apt-get update && apt-get upgrade -y && \
-    apt-get install -y wget python3-pip egrep
+    apt-get install -y wget python3-pip grep
 
     # python3 -m pip install --upgrade pip
     # Tip from Pavlin Mitev
