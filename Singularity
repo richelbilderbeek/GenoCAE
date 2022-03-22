@@ -50,7 +50,7 @@ Stage: spython-base
     DEBIAN_FRONTEND=noninteractive
 
     apt-get update && apt-get upgrade -y && \
-    apt-get install -y wget python3-pip
+    apt-get install -y wget python3-pip grep
 
     # python3 -m pip install --upgrade pip
     # Tip from Pavlin Mitev
@@ -72,7 +72,30 @@ Stage: spython-base
     python3 /opt/gcae/run_gcae.py --help
 
 %runscript
-    exec python3 /opt/gcae/run_gcae.py "$@"
+
+    echo "Running gcae.sif"
+    echo "Parameters: $@"
+    echo "Number of parameters: $#"
+
+    # No args? Run default script
+    if "$#" -eq 0 ; then
+      echo "Zero arguments given, running '/opt/gcae/run_gcae.py'"
+      exec python3 /opt/gcae/run_gcae.py "$@"
+      exit $?
+    fi
+
+    echo "At least one argument given"
+
+    # Detect if first parameter matches 'run_gcae.py'
+    if echo $1 | egrep -q "run_gcae\\.py$"; then
+      echo "'run_gcae.py' detected"
+      exec python3 "$@"
+      exit 0
+    else
+      echo "No 'run_gcae.py' detected, using '/opt/gcae/run_gcae.py'"
+      exec python3 /opt/gcae/run_gcae.py "$@"
+      exit 0
+    fi
 
 %startscript
     exec python3 /opt/gcae/run_gcae.py "$@"
@@ -87,6 +110,13 @@ To use GenoCAE, run the container with the desired GenoCAE arguments:
 singularity run gcae.sif --help
 ```
 
+If you want to run another `run_gcae_py` Python script,
+add it as a first argument:
+
+```
+singularity run gcae.sif run_gcae.py --help
+```
+
 %labels
 
     AUTHOR Richel J.C. Bilderbeek
@@ -99,5 +129,5 @@ singularity run gcae.sif --help
 
     URL https://github.com/richelbilderbeek/GenoCAE/tree/Pheno
 
-    VERSION 0.1
+    VERSION 0.3
 
