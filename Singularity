@@ -50,7 +50,7 @@ Stage: spython-base
     DEBIAN_FRONTEND=noninteractive
 
     apt-get update && apt-get upgrade -y && \
-    apt-get install -y wget python3-pip
+    apt-get install -y wget python3-pip egrep
 
     # python3 -m pip install --upgrade pip
     # Tip from Pavlin Mitev
@@ -84,12 +84,15 @@ Stage: spython-base
       exit $?
     fi
 
+    echo "At least one argument given"
+
     # Detect if first parameter matches 'run_gcae.py'
     if echo $1 | egrep -q "run_gcae\\.py$"; then
       echo "'run_gcae.py' detected"
       exec python3 "$@"
       exit 0
     else
+      echo "No 'run_gcae.py' detected, using '/opt/gcae/run_gcae.py'"
       exec python3 /opt/gcae/run_gcae.py "$@"
       exit 0
     fi
