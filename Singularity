@@ -110,7 +110,12 @@ To use GenoCAE, run the container with the desired GenoCAE arguments:
 singularity run gcae.sif --help
 ```
 
-If you want to run another Python script
+If you want to run another `run_gcae_py` Python script,
+add it as a first argument:
+
+```
+singularity run gcae.sif run_gcae.py --help
+```
 
 %labels
 
@@ -124,5 +129,5 @@ If you want to run another Python script
 
     URL https://github.com/richelbilderbeek/GenoCAE/tree/Pheno
 
-    VERSION 0.1
+    VERSION 0.2
 
