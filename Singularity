@@ -78,7 +78,7 @@ Stage: spython-base
     echo "Number of parameters: $#"
 
     # No args? Run default script
-    if [[ "$#" -eq 0 ]] ; then
+    if "$#" -eq 0 ; then
       echo "Zero arguments given, running '/opt/gcae/run_gcae.py'"
       exec python3 /opt/gcae/run_gcae.py "$@"
       exit $?
