@@ -28,8 +28,10 @@ jobs:
 
       - name: Clean up space, from https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
         run: |
-          sudo rm -rf "/usr/local/share/boost" \
+          sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
 
       - name: How much disk space we have? We need 6 GB
         run: df -h
