@@ -129,5 +129,5 @@ singularity run gcae.sif run_gcae.py --help
 
     URL https://github.com/richelbilderbeek/GenoCAE/tree/Pheno
 
-    VERSION 0.2
+    VERSION 0.3
 
