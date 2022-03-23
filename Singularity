@@ -24,14 +24,51 @@ Stage: spython-base
     example_tiny/issue_6_bin.bim /opt/gcae/example_tiny/issue_6_bin.bim
     example_tiny/issue_6_bin.fam /opt/gcae/example_tiny/issue_6_bin.fam
     example_tiny/issue_6_bin.phe /opt/gcae/example_tiny/issue_6_bin.phe
-    models/p2.json /opt/gcae/models/p2.json
-    models/p1.json /opt/gcae/models/p1.json
-    models/p0.json /opt/gcae/models/p0.json
-    models/M3d.json /opt/gcae/models/M3d.json
-    models/M3e.json /opt/gcae/models/M3e.json
-    models/M1.json /opt/gcae/models/M1.json
-    models/M0.json /opt/gcae/models/M0.json
-    models/M3f.json /opt/gcae/models/M3f.json
+    models/M0_1n.json/opt/gcae/models/M0_1n.json
+    models/M0_2n.json/opt/gcae/models/M0_2n.json
+    models/M0_3n.json/opt/gcae/models/M0_3n.json
+    models/M0_4n.json/opt/gcae/models/M0_4n.json
+    models/M0_5n.json/opt/gcae/models/M0_5n.json
+    models/M0.json/opt/gcae/models/M0.json
+    models/M1_1n.json/opt/gcae/models/M1_1n.json
+    models/M1_2n.json/opt/gcae/models/M1_2n.json
+    models/M1_3n.json/opt/gcae/models/M1_3n.json
+    models/M1_4n.json/opt/gcae/models/M1_4n.json
+    models/M1_5n.json/opt/gcae/models/M1_5n.json
+    models/M1.json/opt/gcae/models/M1.json
+    models/M3d_1n.json/opt/gcae/models/M3d_1n.json
+    models/M3d_2n.json/opt/gcae/models/M3d_2n.json
+    models/M3d_3n.json/opt/gcae/models/M3d_3n.json
+    models/M3d_4n.json/opt/gcae/models/M3d_4n.json
+    models/M3d_5n.json/opt/gcae/models/M3d_5n.json
+    models/M3d.json/opt/gcae/models/M3d.json
+    models/M3e_1n.json/opt/gcae/models/M3e_1n.json
+    models/M3e_2n.json/opt/gcae/models/M3e_2n.json
+    models/M3e_3n.json/opt/gcae/models/M3e_3n.json
+    models/M3e_4n.json/opt/gcae/models/M3e_4n.json
+    models/M3e_5n.json/opt/gcae/models/M3e_5n.json
+    models/M3e.json/opt/gcae/models/M3e.json
+    models/M3f_1n.json/opt/gcae/models/M3f_1n.json
+    models/M3f_2n.json/opt/gcae/models/M3f_2n.json
+    models/M3f_3n.json/opt/gcae/models/M3f_3n.json
+    models/M3f_4n.json/opt/gcae/models/M3f_4n.json
+    models/M3f_5n.json/opt/gcae/models/M3f_5n.json
+    models/M3f.json/opt/gcae/models/M3f.json
+    models/M3j10U_1n.json/opt/gcae/models/M3j10U_1n.json
+    models/M3j10U_2n.json/opt/gcae/models/M3j10U_2n.json
+    models/M3j10U_3n.json/opt/gcae/models/M3j10U_3n.json
+    models/M3j10U_4n.json/opt/gcae/models/M3j10U_4n.json
+    models/M3j10U_5n.json/opt/gcae/models/M3j10U_5n.json
+    models/M3j10U.json/opt/gcae/models/M3j10U.json
+    models/M3j10X_1n.json/opt/gcae/models/M3j10X_1n.json
+    models/M3j10X_2n.json/opt/gcae/models/M3j10X_2n.json
+    models/M3j10X_3n.json/opt/gcae/models/M3j10X_3n.json
+    models/M3j10X_4n.json/opt/gcae/models/M3j10X_4n.json
+    models/M3j10X_5n.json/opt/gcae/models/M3j10X_5n.json
+    models/M3j10X.json/opt/gcae/models/M3j10X.json
+    models/p0.json/opt/gcae/models/p0.json
+    models/p1.json/opt/gcae/models/p1.json
+    models/p2.json/opt/gcae/models/p2.json
     train_opts/ex3.json /opt/gcae/train_opts/ex3.json
     train_opts/ex2.json /opt/gcae/train_opts/ex2.json
     train_opts/ex1.json /opt/gcae/train_opts/ex1.json
