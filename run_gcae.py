@@ -1,4 +1,4 @@
-"""GenoCAE, from https://github.com/richelbilderbeek/GenoCAE, Pheno branch
+"""GenoCAE_v0_3
 
 Usage:
   run_gcae.py train --datadir=<name> --data=<name> --model_id=<name> --train_opts_id=<name> --data_opts_id=<name> --save_interval=<num> --epochs=<num> [--resume_from=<num> --trainedmodeldir=<name> ] [--pheno_model_id=<name>]
