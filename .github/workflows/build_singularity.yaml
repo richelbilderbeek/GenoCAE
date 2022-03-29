@@ -39,6 +39,15 @@ jobs:
       - name: Build the Singularity container
         run: ./build_singularity_container.sh
 
-      - name: Run the Singularity container
+      - name: Run the Singularity container, show default help from '/opt/gcae'
         run: singularity run gcae.sif --help
+
+      - name: Download another 'run_gcae.py' 
+        run: wget https://raw.githubusercontent.com/richelbilderbeek/GenoCAE/Pheno/run_gcae.py
+
+      - name: Show the head of the downloaded 'run_gcae.py'
+        run: head run_gcae.py
+
+      - name: Get the help using the downloaded 'run_gcae.py'
+        run: singularity run --cleanenv --bind $PWD gcae.sif run_gcae.py --help
 
